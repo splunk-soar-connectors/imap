@@ -1,0 +1,181 @@
+<!-- 
+File: readme.html
+
+Copyright (c) Phantom Cyber Corporation, 2014-2017
+
+This unpublished material is proprietary to Phantom Cyber.
+All rights reserved. The methods and
+techniques described herein are considered trade secrets
+and/or confidential. Reproduction or distribution, in whole
+or in part, is forbidden except by express written permission
+of Phantom Cyber.
+-->
+<h1>IMAP</h1>
+    <p>
+        It is not uncommon for enterprises to have a single mailbox configured where users can forward suspicious emails for further investigation. The ingestion feature in the IMAP app is primarily designed to pull emails from such a mailbox and create containers and artifacts in Phantom. 
+    </p>
+<p>To add an IMAP Asset in Phantom, from the <b>Main Menu</b>, select <b>Apps</b>. In the <b>Search Apps</b> field, search for the <b>IMAP</b> App by typing "imap" into the search field and hitting enter. To the right of the App name, click on the <b>Configure New Asset</b> button.</p>
+    <a href="/app_resource/imap_9f2e9f72-b0e5-45d6-92a7-09ef820476c1/img/imap_asset.png">  
+        <img src="/app_resource/imap_9f2e9f72-b0e5-45d6-92a7-09ef820476c1/img/imap_asset.png"/>
+    </a>
+<br><br>
+<p>
+In the <b>Asset Info</b> tab, the <b>Asset Name</b> and <b>Asset Description</b> can be whatever you want, we've chosen "IMAP Abuse" for this example. The <b>Product Vendor</b> and <b>Product Name</b> fields will be populated by Phantom and are not user configurable. Do not click <b>Save</b> yet, navigate to the next tab, <b>Asset Settings</b>. 
+</p>
+    <a href="/app_resource/imap_9f2e9f72-b0e5-45d6-92a7-09ef820476c1/img/imap_asset_settings.png">
+        <img src="/app_resource/imap_9f2e9f72-b0e5-45d6-92a7-09ef820476c1/img/imap_asset_settings.png"/>
+    </a>
+<br><br>
+<p>
+The <b>Asset Settings</b> tab provides the configuration information Phantom uses to communicate with mail server. Fill in the <b>Server IP/Hostname</b>, <b>Username</b>, and <b>Password</b>. The remaining configuration fields can be adjusted to suit the email environment. Do not click <b>Save</b> yet, navigate to the next tab, <b>Ingest Settings</b>.
+</p>
+    <a href="/app_resource/imap_9f2e9f72-b0e5-45d6-92a7-09ef820476c1/img/imap_asset_ingest.png">
+        <img src="/app_resource/imap_9f2e9f72-b0e5-45d6-92a7-09ef820476c1/img/imap_asset_ingest.png"/>
+    </a>
+<br><br>
+<p>
+The <b>Ingest Settings</b> tab sets the container type the ingested IMAP data will be placed. Select the appropriate label name or create a new label. In this example the label name <b>Email</b> has been selected. Check the checkbox for <b>Enable Polling</b>. Set the <b>Polling Interval</b> to the desired number of minutes. NOW you can click <b>Save</b>. The settings in the <b>Approval Settings</b> tab are not used for the communication between Phantom and IMAP and can be configured later.  You will see the saved Asset. Return to the <b>Ingest Settings</b> tab if you are not already there. Notice that you now have a <b>Poll Now</b> button, as shown here:    
+</p>
+    <a href="/app_resource/imap_9f2e9f72-b0e5-45d6-92a7-09ef820476c1/img/imap_poll_now.png">
+        <img src="/app_resource/imap_9f2e9f72-b0e5-45d6-92a7-09ef820476c1/img/imap_poll_now.png"/>
+    </a> 
+<br><br>
+<p>Click <b>Poll Now</b>. There are a few options you can set, In this example the <b>Maximum containers</b> and <b>Maximum artifacts</b> to 10, the default values are also fine. Click the <b>Poll Now</b> button at the bottom of the dialog. You will see some text begin to scroll by inside the text field, indicating progress. Parsing data might take a while. The dialog should look like this.</p>
+    <a href="/app_resource/imap_9f2e9f72-b0e5-45d6-92a7-09ef820476c1/img/imap_test_poll.png">
+        <img src="/app_resource/imap_9f2e9f72-b0e5-45d6-92a7-09ef820476c1/img/imap_test_poll.png"/>
+    </a> 
+<br><br>
+    <p>
+    Now that the config is out of the way, let's delve into the two modes that ingestion can occur and the differences between them. One thing to note is that for every email that is ingested, a single container is created containing multiple artifacts.
+    </a>
+<h2>POLL NOW</h2>
+    <p>
+    POLL NOW should be used to get a sense of the containers and artifacts that are created by the app. The POLL NOW window allows the user to set the "Maximum containers" that should be ingested at this instance. Since a single container is created for each email, this value equates to the maximum emails that are ingested by the App. The App will either get the oldest email first or the latest, depending upon the configuration parameter <i>How to ingest</i>.
+    </p>
+<h2>Scheduled Polling</h2>
+    <p>
+       This mode is used to schedule a polling action on the asset at regular intervals, which is configured via the Ingest tab of the asset. It makes use of the following asset configuration parameters (among others):
+
+    <ul>
+    <li>Maximum emails to poll first time</li>
+        The App detects the first time it is polling an asset and will ingest these number of emails (at the most).
+    <li>Maximum emails to poll</li>
+        For all scheduled polls after the first, the app will ingest these number of emails.
+    <li>How to ingest</li>
+        Should the app be ingesting the latest emails or the oldest.
+    </ul>
+    <p>In case of Scheduled Polling, on every poll, the App remembers the last email that it has ingested and will pickup from the next one in the next secheduled poll.</p>
+    <h3>How to ingest</h3>
+    <p>The app allows the user to configure how it should ingest emails on every scheduled poll, <i>oldest first</i> or <i>latest first</i>. Depending upon the scheduled interval and how busy the inbox is one of the following could potentially happen</p>
+    <ul>
+    <li>oldest first</li>
+        If the app is configured to poll too slowly and the inbox is so busy that on every poll the maximum ingested emails is less than the number of new emails, the app will never catch up.
+    <li>latest first</li>
+        If the app is configured to poll too slowly and the inbox is so busy that on every poll the maximum ingested emails is less than the number of new emails, the app will drop the older emails since it is ingesting the latest emails that came into the mailbox.
+    </ul>
+    For best results, keep the poll interval and <i>Maximum emails to poll</i> values close to the number of emails you would get within a time interval. This way, every poll will end up ingesting all the new emails.
+    </p>
+<h2>Containers created</h2>
+    <p>
+       As mentioned before, the app will create a single container for each email that it ingests with the following properties:
+      <ul>
+      <li>Name</li>
+      The email subject is used as the name of the container. If a subject is not present the generated name is of the format:</br> 
+      "Email UID: the_numeric_email_id"
+      <li>Source ID</li>
+          The source ID of the container will be set to the numeric Email ID that is set on the server.
+      </ul>
+      The <d>data</b> section of the container will contain the complete raw email in a key named 'raw_email'. The UI allows the user to download this raw data json into a file. This same data can be extracted in a playbook also for further processing.
+<h2>Artifacts created</h2>
+    <p>
+       The App will create the following type of artifacts:
+      <ul>
+      <li>Email Artifact</li>
+      The email addresses that are found in the ingested email will be added as a separate artifact. Any attached email will also be scanned and the address present in the attached email will be added as a separate artifact. The emails are added as custom strings in the cef structure in the following manner.
+      <table style="width:100%">
+        <tr>
+          <td><b>Artifact Field</b></td>
+          <td><b>Value Details</b></td> 
+        </tr>
+        <tr>
+          <td>Source ID</td>
+          <td>Email ID set on the server</td> 
+        </tr>
+        <tr>
+          <td>cef.fromEmail</td>
+          <td>From email address</td> 
+        </tr>
+        <tr>
+          <td>cef.toEmail</td>
+          <td>To email address</td> 
+        </tr>
+        <tr>
+          <td>cef.emailHeaders</td>
+          <td>A dictionary containing each email header as a key and it's value as the key-value</td> 
+        </tr>
+      </table>
+
+    <a href="/app_resource/imap_9f2e9f72-b0e5-45d6-92a7-09ef820476c1/img/imap_email_artifact.png">
+        <img src="/app_resource/imap_9f2e9f72-b0e5-45d6-92a7-09ef820476c1/img/imap_email_artifact.png"/>
+    </a>
+    <li>IP Artifact
+        <ul>
+            <li>If <b>extract_ips</b> is enabled, any IPv4 or IPv6 found in the email body will be added, with one CEF per IP.</li>
+            <li>Any IP addresses found in the email are added to the CEF structure of an artifact.</li>
+            <li>The CEF for an IP is cef.sourceAddress.</li>
+        </ul>
+    </li>
+    <li>Hash Artifact - cef.fileHash</li>
+        <ul>
+            <li>If <b>extract_hashes</b> is enabled, any hash found in the email body will be added, with one CEF per hash.</li>
+            <li>Any Hashes found in the email are added to the CEF structure of an artifact.</li>
+            <li>The CEF for a hash is cef.fileHash.</li>
+        </ul>
+    </li>
+    <li>URL Artifact - cef.requestURL</li>
+        <ul>
+            <li>If <b>extract_urls</b> is enabled, any url found in the email body will be added, with one CEF per url.</li>
+            <li>Any URLs found are added to the CEF structure of an artifact.</li>
+            <li>The CEF for a URL is cef.requestURL.</li>
+        </ul>
+    </li>
+    <li>Domain Artifact - cef.destinationDnsDomain</li>
+        <ul>
+            <li>If <b>extract_domains</b> is enabled, any domain found in the email body will be added, with one CEF per domain.</li>
+            <li>Domains that are part of a URL or an email address are added to the CEF structure of an artifact.</li>
+            <li>The CEF for a URL is cef.destinationDnsDomain.</li>
+        </ul>
+    </li>
+      <li>Vault Artifact
+        <ul>
+          <li>If the email contains any attachments, these are extracted (if enabled in the config) and added to the vault of the Container.</li>
+          <li>At the same time the vault id and file name of this item is represented by a Vault Artifact.</li>
+          <li>The same file can be added to the vault multiple times. In this scenario the file name of the item added the second time onwards will be slightly different, but the vault id will still be the same. However there will be multiple artifacts created.</li>
+          <li>Do note that the system does <i>not</i> duplicate the file bytes, only the metadata in the db.
+          <table style="width:100%">
+            <tr>
+              <td><b>Artifact Field</b></td>
+              <td><b>Value Details</b></td>
+            </tr>
+            <tr>
+              <td>Source ID</td>
+              <td>Email ID set on the server</td>
+            </tr>
+            <tr>
+              <td>cef.vaultID</tdLavel>
+              <td>Vault ID of the attachement</td>
+            </tr>
+            <tr>
+              <td>cef.fileName</td>
+              <td>Attached filename used in the email</td>
+            </tr>
+          </table></li>
+            <li>You will notice additional cef fields <b>cs6</b> (value is the Vault ID) and <b>cs6Label</b>. These are added for backward compatibility only and will be deprecated in future releases. Please don't use these keys in playbooks.</li>
+        </ul>
+      </li>
+      ** Since the vault id cannot be represented by a native cef field, it is placed in the <b>cs6</b> cef key and the cs6Label key is set to "vault_id".
+    <a href="/app_resource/imap_9f2e9f72-b0e5-45d6-92a7-09ef820476c1/img/imap_vault_artifact.png">
+        <img src="/app_resource/imap_9f2e9f72-b0e5-45d6-92a7-09ef820476c1/img/imap_vault_artifact.png"/>
+      </ul>
+    </a>
+    </p>
