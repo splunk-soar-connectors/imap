@@ -32,8 +32,6 @@ import requests
 from phantom.base_connector import BaseConnector
 from phantom.action_result import ActionResult
 
-requests.packages.urllib3.disable_warnings()
-
 
 class ImapConnector(BaseConnector):
 
