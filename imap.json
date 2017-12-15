@@ -1,7 +1,7 @@
 {
-    "appid"     : "9f2e9f72-b0e5-45d6-92a7-09ef820476c1",
-    "name"    : "IMAP",
-    "description" : "This App supports <b>email ingestion</b> and various <b>investigative</b> actions over <b>IMAP</b>.",
+    "appid": "9f2e9f72-b0e5-45d6-92a7-09ef820476c1",
+    "name": "IMAP",
+    "description": "This App supports email ingestion and various investigative actions over IMAP",
     "type": "email",
     "publisher": "Phantom",
     "main_module" : "imap_connector.pyc",
@@ -11,9 +11,9 @@
     "product_vendor": "Generic",
     "product_name": "IMAP",
     "product_version_regex": ".*",
-    "min_phantom_version": "3.0.190",
+    "min_phantom_version": "3.0.251",
     "logo": "phantom.png",
-    "license": "Copyright (c) Phantom Cyber Corporation 2015-2017",
+    "license": "Copyright (c) Phantom Cyber Corporation, 2015-2017",
     "configuration": {
       "server": {
         "data_type": "string",
@@ -146,7 +146,7 @@
             "contains": ["phantom container id"],
             "primary": true,
             "required": false,
-            "allow_list": true
+            "allow_list": false
           },
           "ingest_email": {
             "description": "Create container and artifacts", 
