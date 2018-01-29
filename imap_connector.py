@@ -25,7 +25,7 @@ import time
 from parse import parse
 from dateutil import tz
 import json
-from process_email import ProcessEmail
+import process_email
 import email
 import requests
 
@@ -47,8 +47,6 @@ class ImapConnector(BaseConnector):
         self._state = {}
 
     def initialize(self):
-
-        self._preprocess_container = lambda x: x
 
         self._state = self.load_state()
 
@@ -140,7 +138,6 @@ class ImapConnector(BaseConnector):
         if (config is None):
             config = self.get_config()
 
-        process_email = ProcessEmail()
         return process_email.process_email(self, rfc822_email, muuid, config, epoch)
 
     def _get_email_data_from_container(self, container_id, action_result):
@@ -548,7 +545,6 @@ if __name__ == '__main__':
                     "extract_ips": True,
                     "extract_urls": True }
 
-            process_email = ProcessEmail()
             ret_val, message = process_email.process_email(connector, raw_email, "manual_parsing", config, None)
 
     exit(0)
