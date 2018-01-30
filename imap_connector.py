@@ -48,8 +48,6 @@ class ImapConnector(BaseConnector):
 
     def initialize(self):
 
-        self._preprocess_container = lambda x: x
-
         self._state = self.load_state()
 
         return phantom.APP_SUCCESS
