@@ -22,6 +22,7 @@ import phantom.app as phantom
 import phantom.utils as ph_utils
 import mimetypes
 import socket
+import base64
 from email.header import decode_header
 from phantom.vault import Vault
 import shutil
@@ -175,7 +176,9 @@ class ProcessEmail(object):
         if ('>' in url):
             url = url[:url.find('>')]
 
-        return url
+        url = url.rstrip(']')
+
+        return url.strip()
 
     def _extract_urls_domains(self, file_data, urls, domains):
 
@@ -224,6 +227,8 @@ class ProcessEmail(object):
                 for curr_email in mailtos:
                     domain = curr_email[curr_email.find('@') + 1:]
                     if (domain) and (not self._is_ip(domain)):
+                        if ('?' in domain):
+                            domain = domain[:domain.find('?')]
                         domains.add(domain)
 
         return
@@ -410,8 +415,11 @@ class ProcessEmail(object):
             if (encoding != 'utf-8'):
                 value = unicode(value, encoding).encode('utf-8')
 
-            # substitute the encoded string with the decoded one
-            input_str = input_str.replace(encoded_string, value)
+            try:
+                # substitute the encoded string with the decoded one
+                input_str = input_str.replace(encoded_string, value)
+            except:
+                pass
 
         return input_str
 
@@ -585,6 +593,12 @@ class ProcessEmail(object):
         if (received_headers):
             headers['Received'] = received_headers
 
+        # handle the subject string, if required add a new key
+        subject = headers.get('Subject')
+        if (subject):
+            if (type(subject) == unicode):
+                headers['decodedSubject'] = self._decode_uni_string(subject.encode('utf8'), subject)
+
         return headers
 
     def _parse_email_headers(self, parsed_mail, part, charset=None, add_email_id=None):
@@ -621,11 +635,13 @@ class ProcessEmail(object):
             self._update_headers(headers)
             cef_artifact['emailHeaders'] = dict(headers)
 
+        body = None
+        body_key = None
+
         for curr_key in cef_artifact['emailHeaders'].keys():
-            if curr_key.lower().startswith('body'):
-                curr_value = cef_artifact['emailHeaders'].pop(curr_key)
-                if (self._config.get(PROC_EMAIL_JSON_EXTRACT_BODY, False)):
-                    cef_artifact.update({curr_key: curr_value})
+            if (curr_key.lower().startswith('body')):
+                body = cef_artifact['emailHeaders'].pop(curr_key)
+                body_key = None
             elif (curr_key == 'parentInternetMessageId'):
                 curr_value = cef_artifact['emailHeaders'].pop(curr_key)
                 cef_artifact.update({curr_key: curr_value})
@@ -635,6 +651,27 @@ class ProcessEmail(object):
             elif (curr_key == 'emailGuid'):
                 curr_value = cef_artifact['emailHeaders'].pop(curr_key)
                 cef_artifact.update({curr_key: curr_value})
+
+        if (self._config.get(PROC_EMAIL_JSON_EXTRACT_BODY, False)):
+            if body:  # Body was already added to headers (through exchange API?)
+                cef_artifact.update({body_key, body})
+            else:
+                queue = list()
+                queue.append(part)
+                i = 1
+                while len(queue) > 0:
+                    cur_part = queue.pop(0)
+                    # If the part is a multipart message, get_payload returns a list of parts
+                    # Else it returns the body
+                    payload = cur_part.get_payload()
+                    if isinstance(payload, list):
+                        queue.extend(payload)
+                    else:
+                        encoding = cur_part['Content-Transfer-Encoding']
+                        if encoding and 'base64' in encoding.lower():
+                            payload = base64.b64decode(''.join(payload.splitlines()))
+                        cef_artifact.update({'bodyPart{}'.format(i): payload})
+                        i += 1
 
         # Adding the email id as a cef artifact crashes the UI when trying to show the action dialog box
         # so not adding this right now. All the other code to process the emailId is there, but the refraining
@@ -796,10 +833,6 @@ class ProcessEmail(object):
     def process_email(self, base_connector, rfc822_email, email_id, config, epoch, container_id=None, email_headers=None, attachments_data=None):
 
         self._base_connector = base_connector
-        if not hasattr(self._base_connector, '_preprocess_container'):
-            # Set a default if this doesn't exist
-            self._base_connector._preprocess_container = lambda x: x
-
         self._config = config
 
         if (email_headers):
@@ -866,7 +899,8 @@ class ProcessEmail(object):
             # Create a new container
             container['artifacts'] = artifacts
 
-        container = self._base_connector._preprocess_container(container)
+        if (hasattr(self._base_connector, '_preprocess_container')):
+            container = self._base_connector._preprocess_container(container)
 
         for artifact in list(filter(lambda x: not x.get('source_data_identifier'), container.get('artifacts', []))):
             self._set_sdi(artifact)
