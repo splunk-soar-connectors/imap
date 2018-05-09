@@ -111,6 +111,13 @@
             "required": false,
             "order": 13,
             "default": true
+        },
+        "add_body_to_header_artifacts": {
+            "data_type": "boolean",
+            "description": "Add email body to the Email Artifact",
+            "required": false,
+            "order": 14,
+            "default": false
         }
     },
     "actions": [

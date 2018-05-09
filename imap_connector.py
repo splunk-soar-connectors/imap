@@ -45,6 +45,7 @@ class ImapConnector(BaseConnector):
         self._imap_conn = None
         self._state_file_path = None
         self._state = {}
+        self._preprocess_container = lambda x: x
 
     def initialize(self):
 
