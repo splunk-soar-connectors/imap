@@ -1,7 +1,7 @@
 {
     "appid": "9f2e9f72-b0e5-45d6-92a7-09ef820476c1",
     "name": "IMAP",
-    "description": "This App supports email ingestion and various investigative actions over IMAP",
+    "description": "This app supports email ingestion and various investigative actions over IMAP",
     "type": "email",
     "publisher": "Phantom",
     "main_module": "imap_connector.pyc",
@@ -12,8 +12,8 @@
     "product_name": "IMAP",
     "product_version_regex": ".*",
     "min_phantom_version": "3.5.210",
-    "logo": "logo_phantom.svg",
-    "logo_dark": "logo_phantom_dark.svg",
+    "logo": "logo_imap.svg",
+    "logo_dark": "logo_imap_dark.svg",
     "license": "Copyright (c) 2014-2018 Splunk Inc.",
     "configuration": {
         "server": {
