@@ -12,8 +12,8 @@
     "product_name": "IMAP",
     "product_version_regex": ".*",
     "min_phantom_version": "3.5.210",
-    "logo": "logo_phantom.svg",
-    "logo_dark": "logo_phantom_dark.svg",
+    "logo": "logo_imap.svg",
+    "logo_dark": "logo_imap_dark.svg",
     "license": "Copyright (c) 2014-2018 Splunk Inc.",
     "configuration": {
         "server": {
