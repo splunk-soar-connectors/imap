@@ -160,7 +160,7 @@
                     ],
                     "primary": true,
                     "required": false,
-                    "allow_list": false
+                    "allow_list": true
                 },
                 "ingest_email": {
                     "description": "Create container and artifacts",
