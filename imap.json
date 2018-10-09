@@ -1,7 +1,7 @@
 {
     "appid": "9f2e9f72-b0e5-45d6-92a7-09ef820476c1",
     "name": "IMAP",
-    "description": "This App supports email ingestion and various investigative actions over IMAP",
+    "description": "This app supports email ingestion and various investigative actions over IMAP",
     "type": "email",
     "publisher": "Phantom",
     "main_module": "imap_connector.pyc",
