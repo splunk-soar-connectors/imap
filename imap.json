@@ -76,7 +76,7 @@
             "description": "Use SSL",
             "required": false,
             "order": 8,
-            "default": true
+            "default": false
         },
         "extract_attachments": {
             "data_type": "boolean",
