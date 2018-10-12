@@ -299,7 +299,7 @@ class ImapConnector(BaseConnector):
 
     def _get_container_id(self, email_id):
 
-        url = 'https://{0}/rest/container?_filter_source_data_identifier="{1}"&_filter_asset={2}'.format(self._get_phantom_base_url(), email_id, self.get_asset_id())
+        url = '{0}/rest/container?_filter_source_data_identifier="{1}"&_filter_asset={2}'.format(self._get_phantom_base_url().strip('/'), email_id, self.get_asset_id())
 
         try:
             r = requests.get(url, verify=False)
