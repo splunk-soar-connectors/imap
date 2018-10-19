@@ -662,6 +662,12 @@ class ProcessEmail(object):
                         encoding = cur_part['Content-Transfer-Encoding']
                         if encoding and 'base64' in encoding.lower():
                             payload = base64.b64decode(''.join(payload.splitlines()))
+                        try:
+                            json.dumps({'body': payload})
+                        except UnicodeDecodeError:
+                            self._debug_print("Email body caused unicode exception. Encoding as base64.")
+                            payload = base64.b64encode(payload)
+                            cef_artifact['body_encoded'] = True
                         cef_artifact.update({'bodyPart{}'.format(i): payload})
                         i += 1
 
