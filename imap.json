@@ -1,20 +1,20 @@
 {
     "appid": "9f2e9f72-b0e5-45d6-92a7-09ef820476c1",
     "name": "IMAP",
-    "description": "This App supports <b>email ingestion</b> and various <b>investigative</b> actions over <b>IMAP</b>.",
+    "description": "This app supports email ingestion and various investigative actions over IMAP",
     "type": "email",
     "publisher": "Phantom",
     "main_module": "imap_connector.pyc",
-    "app_version": "2.0.9",
-    "utctime_updated": "2018-01-26T00:49:34.000000Z",
+    "app_version": "2.0.20",
+    "utctime_updated": "2018-10-22T18:15:55.000000Z",
     "package_name": "phantom_imap",
     "product_vendor": "Generic",
     "product_name": "IMAP",
     "product_version_regex": ".*",
-    "min_phantom_version": "3.0.190",
-    "logo": "logo_phantom.svg",
-    "logo_dark": "logo_phantom_dark.svg",
-    "license": "Copyright (c) Phantom Cyber Corporation, 2015-2018",
+    "min_phantom_version": "4.0.1068",
+    "logo": "logo_imap.svg",
+    "logo_dark": "logo_imap_dark.svg",
+    "license": "Copyright (c) 2014-2018 Splunk Inc.",
     "configuration": {
         "server": {
             "data_type": "string",
@@ -76,7 +76,7 @@
             "description": "Use SSL",
             "required": false,
             "order": 8,
-            "default": true
+            "default": false
         },
         "extract_attachments": {
             "data_type": "boolean",
@@ -112,12 +112,19 @@
             "required": false,
             "order": 13,
             "default": true
+        },
+        "add_body_to_header_artifacts": {
+            "data_type": "boolean",
+            "description": "Add email body to the Email Artifact",
+            "required": false,
+            "order": 14,
+            "default": false
         }
     },
     "actions": [
         {
             "action": "test connectivity",
-            "description": "Validate the asset configuration for connectivity. This action runs a quick query on the server to check the connection and credentials.",
+            "description": "Validate the asset configuration for connectivity. This action runs a quick query on the server to check the connection and credentials",
             "type": "test",
             "identifier": "test_asset_connectivity",
             "read_only": true,
@@ -265,7 +272,7 @@
         },
         {
             "action": "on poll",
-            "description": "Callback action for the on_poll ingest functionality.",
+            "description": "Callback action for the on_poll ingest functionality",
             "type": "ingest",
             "identifier": "on_poll",
             "read_only": true,

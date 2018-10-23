@@ -1,14 +1,9 @@
-# --
 # File: imap_connector.py
 #
-# Copyright (c) Phantom Cyber Corporation, 2014-2018
+# Copyright (c) 2014-2018 Splunk Inc.
 #
-# This unpublished material is proprietary to Phantom Cyber.
-# All rights reserved. The methods and
-# techniques described herein are considered trade secrets
-# and/or confidential. Reproduction or distribution, in whole
-# or in part, is forbidden except by express written permission
-# of Phantom Cyber.
+# SPLUNK CONFIDENTIAL - Use or disclosure of this material in whole or in part
+# without a valid written license from Splunk Inc. is PROHIBITED.
 #
 # --
 
@@ -25,9 +20,10 @@ import time
 from parse import parse
 from dateutil import tz
 import json
-import process_email
+from process_email import ProcessEmail
 import email
 import requests
+import socket
 
 from phantom.base_connector import BaseConnector
 from phantom.action_result import ActionResult
@@ -45,6 +41,7 @@ class ImapConnector(BaseConnector):
         self._imap_conn = None
         self._state_file_path = None
         self._state = {}
+        self._preprocess_container = lambda x: x
 
     def initialize(self):
 
@@ -64,6 +61,9 @@ class ImapConnector(BaseConnector):
 
         use_ssl = config[IMAP_JSON_USE_SSL]
         server = config[phantom.APP_JSON_SERVER]
+
+        # Set timeout to avoid stall
+        socket.setdefaulttimeout(60)
 
         # Connect to the server
         try:
@@ -138,6 +138,7 @@ class ImapConnector(BaseConnector):
         if (config is None):
             config = self.get_config()
 
+        process_email = ProcessEmail()
         return process_email.process_email(self, rfc822_email, muuid, config, epoch)
 
     def _get_email_data_from_container(self, container_id, action_result):
@@ -301,7 +302,7 @@ class ImapConnector(BaseConnector):
 
     def _get_container_id(self, email_id):
 
-        url = 'https://127.0.0.1/rest/container?_filter_source_data_identifier="{0}"&_filter_asset={1}'.format(email_id, self.get_asset_id())
+        url = '{0}/rest/container?_filter_source_data_identifier="{1}"&_filter_asset={2}'.format(self._get_phantom_base_url().strip('/'), email_id, self.get_asset_id())
 
         try:
             r = requests.get(url, verify=False)
@@ -545,6 +546,7 @@ if __name__ == '__main__':
                     "extract_ips": True,
                     "extract_urls": True }
 
+            process_email = ProcessEmail()
             ret_val, message = process_email.process_email(connector, raw_email, "manual_parsing", config, None)
 
     exit(0)
