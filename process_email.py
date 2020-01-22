@@ -1,12 +1,14 @@
 # File: process_email.py
 #
-# Copyright (c) 2014-2018 Splunk Inc.
+# Copyright (c) 2014-2020 Splunk Inc.
 #
 # SPLUNK CONFIDENTIAL - Use or disclosure of this material in whole or in part
 # without a valid written license from Splunk Inc. is PROHIBITED.
 #
 # --
 
+from builtins import str
+from builtins import object
 import email
 import tempfile
 from collections import OrderedDict
@@ -259,8 +261,12 @@ class ProcessEmail(object):
         domains = parsed_mail[PROC_EMAIL_JSON_DOMAINS]
 
         file_data = None
-        with open(local_file_path, 'r') as f:
-            file_data = f.read()
+        try:
+            with open(local_file_path, 'r', newline='') as f:  # in py3, empty newline prevents auto-conversion
+                file_data = f.read()
+        except TypeError:  # py3
+            with open(local_file_path, 'r') as f:
+                file_data = f.read()
 
         if ((file_data is None) or (len(file_data) == 0)):
             return phantom.APP_ERROR
@@ -408,7 +414,7 @@ class ProcessEmail(object):
                 continue
 
             if (encoding != 'utf-8'):
-                value = unicode(value, encoding).encode('utf-8')
+                value = str(value, encoding).encode('utf-8')
 
             try:
                 # substitute the encoded string with the decoded one
@@ -525,8 +531,12 @@ class ProcessEmail(object):
             file_name = self._decode_uni_string(file_name, file_name)
 
         # Remove any chars that we don't want in the name
-        file_path = "{0}/{1}_{2}".format(tmp_dir, part_index,
+        try:
+            file_path = "{0}/{1}_{2}".format(tmp_dir, part_index,
                 file_name.translate(None, ''.join(['<', '>', ' '])))
+        except TypeError:  # py3
+            file_path = "{0}/{1}_{2}".format(tmp_dir, part_index,
+                file_name.translate(file_name.maketrans('', '', ''.join(['<', '>', ' ']))))
 
         self._debug_print("file_path: {0}".format(file_path))
 
@@ -566,7 +576,7 @@ class ProcessEmail(object):
 
     def _get_email_headers_from_part(self, part, charset=None):
 
-        email_headers = part.items()
+        email_headers = list(part.items())
 
         # TODO: the next 2 ifs can be condensed to use 'or'
         if (charset is None):
@@ -580,10 +590,10 @@ class ProcessEmail(object):
 
         # Convert the header tuple into a dictionary
         headers = CaseInsensitiveDict()
-        [headers.update({x[0]: unicode(x[1], charset)}) for x in email_headers]
+        [headers.update({x[0]: x[1]}) for x in email_headers]
 
         # Handle received seperately
-        received_headers = [unicode(x[1], charset) for x in email_headers if x[0].lower() == 'received']
+        received_headers = [x[1] for x in email_headers if x[0].lower() == 'received']
 
         if (received_headers):
             headers['Received'] = received_headers
@@ -591,9 +601,10 @@ class ProcessEmail(object):
         # handle the subject string, if required add a new key
         subject = headers.get('Subject')
         if (subject):
-            if (type(subject) == unicode):
+            try:
                 headers['decodedSubject'] = self._decode_uni_string(subject.encode('utf8'), subject)
-
+            except TypeError:  # py3
+                headers['decodedSubject'] = self._decode_uni_string(subject, subject)
         return headers
 
     def _parse_email_headers(self, parsed_mail, part, charset=None, add_email_id=None):
@@ -633,7 +644,7 @@ class ProcessEmail(object):
         body = None
         body_key = None
 
-        for curr_key in cef_artifact['emailHeaders'].keys():
+        for curr_key in list(cef_artifact['emailHeaders'].keys()):
             if (curr_key.lower().startswith('body')):
                 body = cef_artifact['emailHeaders'].pop(curr_key)
                 body_key = None
@@ -667,6 +678,14 @@ class ProcessEmail(object):
                             payload = base64.b64decode(''.join(payload.splitlines()))
                         try:
                             json.dumps({'body': payload})
+                        except TypeError:  # py3
+                            try:
+                                payload = payload.decode('UTF-8')
+                            except UnicodeDecodeError:
+                                self._debug_print("Email body caused unicode exception. Encoding as base64.")
+                                # payload = base64.b64encode(payload)
+                                payload = base64.b64encode(payload).decode('UTF-8')
+                                cef_artifact['body_base64encoded'] = True
                         except UnicodeDecodeError:
                             self._debug_print("Email body caused unicode exception. Encoding as base64.")
                             payload = base64.b64encode(payload)
@@ -903,7 +922,7 @@ class ProcessEmail(object):
         if (hasattr(self._base_connector, '_preprocess_container')):
             container = self._base_connector._preprocess_container(container)
 
-        for artifact in list(filter(lambda x: not x.get('source_data_identifier'), container.get('artifacts', []))):
+        for artifact in list([x for x in container.get('artifacts', []) if not x.get('source_data_identifier')]):
             self._set_sdi(artifact)
 
         if files and container.get('artifacts'):
@@ -1150,4 +1169,7 @@ class ProcessEmail(object):
             self._base_connector.debug_print('Handled exception in _create_dict_hash', e)
             return None
 
-        return hashlib.md5(input_dict_str).hexdigest()
+        try:
+            return hashlib.md5(input_dict_str).hexdigest()
+        except TypeError:  # py3
+            return hashlib.md5(input_dict_str.encode('UTF-8')).hexdigest()
