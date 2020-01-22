@@ -1,6 +1,6 @@
 # File: imap_connector.py
 #
-# Copyright (c) 2014-2018 Splunk Inc.
+# Copyright (c) 2014-2020 Splunk Inc.
 #
 # SPLUNK CONFIDENTIAL - Use or disclosure of this material in whole or in part
 # without a valid written license from Splunk Inc. is PROHIBITED.
@@ -24,6 +24,7 @@ from process_email import ProcessEmail
 import email
 import requests
 import socket
+from builtins import str
 
 from phantom.base_connector import BaseConnector
 from phantom.action_result import ActionResult
@@ -176,6 +177,8 @@ class ImapConnector(BaseConnector):
         # query for the whole email body
         try:
             (result, data) = self._imap_conn.uid('fetch', muuid, "(INTERNALDATE RFC822)")
+        except TypeError:  # py3
+            (result, data) = self._imap_conn.uid('fetch', str(muuid), "(INTERNALDATE RFC822)")
         except Exception as e:
             return (action_result.set_status(phantom.APP_ERROR, IMAP_FETCH_ID_FAILED.format(muuid=muuid, excep=str(e))), email_data, data_time_info)
 
@@ -210,8 +213,8 @@ class ImapConnector(BaseConnector):
                     email_data, data_time_info)
 
         # parse the email body into an object, we've ALREADY VALIDATED THAT DATA[0] CONTAINS >= 2 ITEMS
-        email_data = data[0][1]
-        data_time_info = data[0][0]
+        email_data = data[0][1].decode('UTF-8')
+        data_time_info = data[0][0].decode('UTF-8')
 
         return (phantom.APP_SUCCESS, email_data, data_time_info)
 
@@ -249,7 +252,10 @@ class ImapConnector(BaseConnector):
         for line in data:
             if (not line):
                 continue
-            parse_data = parse('{left_ingore}(UID {uid})', line)
+            try:
+                parse_data = parse('{left_ingore}(UID {uid})', line)
+            except TypeError:  # py3
+                parse_data = parse('{left_ingore}(UID {uid})', line.decode('UTF-8'))
 
             if (not parse_data):
                 continue
@@ -510,14 +516,54 @@ class ImapConnector(BaseConnector):
 
 if __name__ == '__main__':
 
-    import sys
     import pudb
+    import argparse
 
     pudb.set_trace()
     in_json = None
     in_email = None
 
-    with open(sys.argv[1]) as f:
+    argparser = argparse.ArgumentParser()
+
+    argparser.add_argument('input_test_json', help='Input Test JSON file')
+    argparser.add_argument('-u', '--username', help='username', required=False)
+    argparser.add_argument('-p', '--password', help='password', required=False)
+
+    args = argparser.parse_args()
+    session_id = None
+
+    username = args.username
+    password = args.password
+
+    if (username is not None and password is None):
+
+        # User specified a username but not a password, so ask
+        import getpass
+        password = getpass.getpass("Password: ")
+
+    if (username and password):
+        try:
+            print ("Accessing the Login page")
+            r = requests.get(BaseConnector._get_phantom_base_url() + "login", verify=False)
+            csrftoken = r.cookies['csrftoken']
+
+            data = dict()
+            data['username'] = username
+            data['password'] = password
+            data['csrfmiddlewaretoken'] = csrftoken
+
+            headers = dict()
+            headers['Cookie'] = 'csrftoken=' + csrftoken
+            headers['Referer'] = BaseConnector._get_phantom_base_url() + 'login'
+
+            print ("Logging into Platform to get the session id")
+            r2 = requests.post(BaseConnector._get_phantom_base_url() + "login", verify=False, data=data, headers=headers)
+            session_id = r2.cookies['sessionid']
+        except Exception as e:
+            print("Unable to get session id from the platfrom. Error: " + str(e))
+            exit(1)
+
+    with open(args.input_test_json) as f:
 
         in_json = f.read()
         in_json = json.loads(in_json)
@@ -531,8 +577,11 @@ if __name__ == '__main__':
         # if neither present then treat it as a normal action test json
         if (not data and not raw_email):
             print(json.dumps(in_json, indent=4))
+
+            if (session_id is not None):
+                in_json['user_session_token'] = session_id
             result = connector._handle_action(json.dumps(in_json), None)
-            print result
+            print(result)
             exit(0)
 
         if (data):
@@ -544,7 +593,8 @@ if __name__ == '__main__':
                     "extract_domains": True,
                     "extract_hashes": True,
                     "extract_ips": True,
-                    "extract_urls": True }
+                    "extract_urls": True,
+                    "add_body_to_header_artifacts": True }
 
             process_email = ProcessEmail()
             ret_val, message = process_email.process_email(connector, raw_email, "manual_parsing", config, None)
