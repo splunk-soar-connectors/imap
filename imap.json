@@ -16,8 +16,8 @@
         "On-premise Outlook Web Access v14.3.301.0, Mailbox server Microsoft Exchange v14.3.123.0"
     ],
     "python_version": "3",
-    "logo": "logo_imap.svg",
-    "logo_dark": "logo_imap_dark.svg",
+    "logo": "logo_splunk.svg",
+    "logo_dark": "logo_splunk_dark.svg",
     "license": "Copyright (c) 2014-2020 Splunk Inc.",
     "configuration": {
         "server": {
