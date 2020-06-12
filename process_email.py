@@ -121,7 +121,7 @@ class ProcessEmail(object):
         self._attachments_from_ews = list()
         self._parsed_mail = None
         self._guid_to_hash = dict()
-        pass
+        self._tmp_dirs = list()
 
     def _get_file_contains(self, file_path):
 
@@ -837,7 +837,8 @@ class ProcessEmail(object):
 
         ret_val = phantom.APP_SUCCESS
 
-        tmp_dir = tempfile.mkdtemp(prefix='ph_email')
+        tmp_dir = tempfile.mkdtemp(prefix='ph_email_phimap')
+        self._tmp_dirs.append(tmp_dir)
 
         try:
             ret_val = self._handle_mail_object(mail, email_id, rfc822_email, tmp_dir, start_time_epoch)
@@ -870,9 +871,14 @@ class ProcessEmail(object):
         ret_val, message, results = self._int_process_email(rfc822_email, email_id, epoch)
 
         if (not ret_val):
+            self._del_tmp_dirs()
             return (phantom.APP_ERROR, message)
 
-        self._parse_results(results, container_id)
+        try:
+            self._parse_results(results, container_id)
+        except Exception:
+            self._del_tmp_dirs()
+            raise
 
         return (phantom.APP_SUCCESS, "Email Processed")
 
@@ -1173,3 +1179,8 @@ class ProcessEmail(object):
             return hashlib.md5(input_dict_str).hexdigest()
         except TypeError:  # py3
             return hashlib.md5(input_dict_str.encode('UTF-8')).hexdigest()
+
+    def _del_tmp_dirs(self):
+        """Remove any tmp_dirs that were created."""
+        for tmp_dir in self._tmp_dirs:
+            shutil.rmtree(tmp_dir, ignore_errors=True)
