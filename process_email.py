@@ -83,6 +83,7 @@ PROC_EMAIL_JSON_DOMAINS = "domains"
 PROC_EMAIL_JSON_MSG_ID = "message_id"
 PROC_EMAIL_JSON_EMAIL_HEADERS = "email_headers"
 PROC_EMAIL_CONTENT_TYPE_MESSAGE = "message/rfc822"
+PROC_EMAIL_JSON_FOLDER = "folder"
 
 URI_REGEX = r"[Hh][Tt][Tt][Pp][Ss]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+#]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+"
 EMAIL_REGEX = r"\b[A-Z0-9._%+-]+@+[A-Z0-9.-]+\.[A-Z]{2,}\b"
@@ -784,7 +785,7 @@ class ProcessEmail(object):
         # delete the header info, we dont make it a part of the container json
         del(container_data[PROC_EMAIL_JSON_EMAIL_HEADERS])
         container.update(_container_common)
-        self._container['source_data_identifier'] = email_id
+        self._container['source_data_identifier'] = "{} : {}".format(self._config.get(PROC_EMAIL_JSON_FOLDER, 'inbox'), email_id)
         self._container['name'] = container_name
         self._container['data'] = {'raw_email': rfc822_email}
 
