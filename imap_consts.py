@@ -59,6 +59,11 @@ IMAP_ERR_MAILBOX_SEARCH_FAILED_RESULT = "Mailbox search failed, result: {result}
 IMAP_FETCH_ID_FAILED = "Fetch for uuid: {muuid} failed, reason: {excep}"
 IMAP_FETCH_ID_FAILED_RESULT = "Fetch for uuid: {muuid} failed, result: {result}, data: {data}"
 IMAP_MSG_GETTING_EMAILS = "Getting {max_emails} events from uid {lower_muid} onwards (uids might not be contiguous)"
+IMAP_VALIDATE_INTEGER_MESSAGE = "Please provide a valid integer value in the {key} parameter"
+IMAP_ERROR_CODE_MESSAGE = "Error code unavailable"
+IMAP_ERROR_MESSAGE = "Unknown error occurred. Please check the asset configuration and|or action parameters"
+TYPE_ERROR_MESSAGE = "Error occurred while connecting to the IMAP server. Please check the asset configuration and|or the action parameters"
+PARSE_ERROR_MESSAGE = "Unable to parse the error message. Please check the asset configuration and|or action parameters"
 
 IMAP_MILLISECONDS_IN_A_DAY = 86400000
 IMAP_NUMBER_OF_DAYS_BEFORE_ENDTIME = 10

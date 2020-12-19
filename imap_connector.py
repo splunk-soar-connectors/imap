@@ -14,6 +14,7 @@ import phantom.app as phantom
 from imap_consts import *
 
 import imaplib
+import codecs
 from datetime import datetime
 from datetime import timedelta
 import time
@@ -24,7 +25,9 @@ from process_email import ProcessEmail
 import email
 import requests
 import socket
+import sys
 from builtins import str
+from bs4 import UnicodeDammit
 
 from phantom.base_connector import BaseConnector
 from phantom.action_result import ActionResult
@@ -44,9 +47,97 @@ class ImapConnector(BaseConnector):
         self._state = {}
         self._preprocess_container = lambda x: x
 
+    def _handle_py_ver_compat_for_input_str(self, input_str):
+        """
+        This method returns the encoded|original string based on the Python version.
+        :param input_str: Input string to be processed
+        :param always_encode: Used if the string needs to be encoded for python 3
+        :return: input_str (Processed input string based on following logic 'input_str - Python 3; encoded input_str - Python 2')
+        """
+
+        try:
+            if input_str and self._python_version == 2:
+                input_str = UnicodeDammit(input_str).unicode_markup.encode('utf-8')
+        except:
+            self.debug_print("Error occurred while handling python 2to3 compatibility for the input string")
+
+        return input_str
+
+    def _get_error_message_from_exception(self, e):
+        """ This method is used to get appropriate error message from the exception.
+        :param e: Exception object
+        :return: error message
+        """
+
+        error_msg = IMAP_ERROR_MESSAGE
+        error_code = IMAP_ERROR_CODE_MESSAGE
+        try:
+            if hasattr(e, "args"):
+                if len(e.args) > 1:
+                    error_code = e.args[0]
+                    error_msg = e.args[1]
+                elif len(e.args) == 1:
+                    error_code = IMAP_ERROR_CODE_MESSAGE
+                    error_msg = e.args[0]
+            else:
+                error_code = IMAP_ERROR_CODE_MESSAGE
+                error_msg = IMAP_ERROR_MESSAGE
+        except:
+            error_code = IMAP_ERROR_CODE_MESSAGE
+            error_msg = IMAP_ERROR_MESSAGE
+
+        try:
+            error_msg = self._handle_py_ver_compat_for_input_str(error_msg)
+        except TypeError:
+            error_msg = TYPE_ERROR_MESSAGE
+        except:
+            error_msg = IMAP_ERROR_MESSAGE
+
+        try:
+            if error_code in IMAP_ERROR_CODE_MESSAGE:
+                error_text = "Error Message: {0}".format(error_msg)
+            else:
+                error_text = "Error Code: {0}. Error Message: {1}".format(error_code, error_msg)
+        except:
+            self.debug_print("Error occurred while parsing error message")
+            error_text = PARSE_ERROR_MESSAGE
+
+        return error_text
+
+    def _validate_integers(self, action_result, parameter, key, allow_zero=False):
+        """ This method is to check if the provided input parameter value
+        is a non-zero positive integer and returns the integer value of the parameter itself.
+        :param action_result: Action result or BaseConnector object
+        :param parameter: input parameter
+        :return: integer value of the parameter or None in case of failure
+        """
+        try:
+            if not float(parameter).is_integer():
+                action_result.set_status(phantom.APP_ERROR, IMAP_VALIDATE_INTEGER_MESSAGE.format(key=key))
+                return None
+            parameter = int(parameter)
+
+        except:
+            action_result.set_status(phantom.APP_ERROR, IMAP_VALIDATE_INTEGER_MESSAGE.format(key=key))
+            return None
+
+        if parameter < 0:
+            action_result.set_status(phantom.APP_ERROR, "Please provide a valid non-negative integer value in the {} parameter".format(key))
+            return None
+        if not allow_zero and parameter == 0:
+            action_result.set_status(phantom.APP_ERROR, "Please provide a positive integer value in the {} parameter".format(key))
+            return None
+
+        return parameter
+
     def initialize(self):
 
         self._state = self.load_state()
+        # Fetching the Python major version
+        try:
+            self._python_version = int(sys.version_info[0])
+        except:
+            return self.set_status(phantom.APP_ERROR, "Error occurred while fetching the Phantom server's Python major version")
 
         return phantom.APP_SUCCESS
 
@@ -56,7 +147,7 @@ class ImapConnector(BaseConnector):
 
         return phantom.APP_SUCCESS
 
-    def _connect_to_server(self, param):
+    def _connect_to_server(self, action_result, param):
 
         config = self.get_config()
 
@@ -68,12 +159,12 @@ class ImapConnector(BaseConnector):
 
         # Connect to the server
         try:
-            if (use_ssl):
+            if use_ssl:
                 self._imap_conn = imaplib.IMAP4_SSL(server)
             else:
                 self._imap_conn = imaplib.IMAP4(server)
         except Exception as e:
-            return self.set_status(phantom.APP_ERROR, IMAP_ERR_CONNECTING_TO_SERVER, e)
+            return action_result.set_status(phantom.APP_ERROR, "{}. Details: {}".format(IMAP_ERR_CONNECTING_TO_SERVER, self._get_error_message_from_exception(e)))
 
         self.save_progress(IMAP_CONNECTED_TO_SERVER)
 
@@ -81,11 +172,11 @@ class ImapConnector(BaseConnector):
         try:
             (result, data) = self._imap_conn.login(config[phantom.APP_JSON_USERNAME], config[phantom.APP_JSON_PASSWORD])
         except Exception as e:
-            return self.set_status(phantom.APP_ERROR, IMAP_ERR_LOGGING_IN_TO_SERVER, e)
+            return action_result.set_status(phantom.APP_ERROR, "{}. Details: {}".format(IMAP_ERR_LOGGING_IN_TO_SERVER, self._get_error_message_from_exception(e)))
 
-        if (result != 'OK'):
+        if result != 'OK':
             self.debug_print("Logging in error, result: {0} data: {1}".format(result, data))
-            return self.set_status(phantom.APP_ERROR, IMAP_ERR_LOGGING_IN_TO_SERVER, e)
+            return action_result.set_status(phantom.APP_ERROR, IMAP_ERR_LOGGING_IN_TO_SERVER)
 
         self.save_progress(IMAP_LOGGED_IN)
 
@@ -93,21 +184,26 @@ class ImapConnector(BaseConnector):
         try:
             (result, data) = self._imap_conn.list()
         except Exception as e:
-            return self.set_status(phantom.APP_ERROR, IMAP_ERR_LISTING_FOLDERS, e)
+            return action_result.set_status(phantom.APP_ERROR, "{}. Details: {}".format(IMAP_ERR_LISTING_FOLDERS, self._get_error_message_from_exception(e)))
 
         self.save_progress(IMAP_GOT_LIST_FOLDERS)
 
         folder = config.get(IMAP_JSON_FOLDER, 'inbox')
         try:
-            (result, data) = self._imap_conn.select(folder, True)
+            (result, data) = self._imap_conn.select('"{}"'.format(
+                codecs.encode(folder, "utf-7").replace(b"&", b"&-").replace(b"'", b"\'").replace(b"+-", b"+").replace(b"+AH4", b"~").replace(b"+AFw", b"\\\\").decode()), True)
+            if result != 'OK':
+                (result, data) = self._imap_conn.select('"{}"'.format(
+                    codecs.encode(folder, "utf-7").replace(b"+", b"&").decode()), True)
         except Exception as e:
-            return self.set_status(phantom.APP_ERROR, IMAP_ERR_SELECTING_FOLDER.format(folder=folder), e)
+            return action_result.set_status(phantom.APP_ERROR, "{}. Details: {}".format(IMAP_ERR_SELECTING_FOLDER.format(folder=self._handle_py_ver_compat_for_input_str(folder)),
+                self._get_error_message_from_exception(e)))
 
-        if (result != 'OK'):
+        if result != 'OK':
             self.debug_print("Error selecting folder, result: {0} data: {1}".format(result, data))
-            return self.set_status(phantom.APP_ERROR, IMAP_ERR_SELECTING_FOLDER.format(folder=folder))
+            return action_result.set_status(phantom.APP_ERROR, IMAP_ERR_SELECTING_FOLDER.format(folder=self._handle_py_ver_compat_for_input_str(folder)))
 
-        self.save_progress(IMAP_SELECTED_FOLDER.format(folder=folder))
+        self.save_progress(IMAP_SELECTED_FOLDER.format(folder=self._handle_py_ver_compat_for_input_str(folder)))
 
         no_of_emails = data[0]
         self.debug_print("Total emails: {0}".format(no_of_emails))
@@ -118,17 +214,17 @@ class ImapConnector(BaseConnector):
 
         epoch = int(time.mktime(datetime.utcnow().timetuple())) * 1000
 
-        if (date_time_info):
+        if date_time_info:
 
             parse_data = parse('{left_ingore}"{dt:tg}"{right_ignore}', date_time_info)
 
-            if (not parse_data):
+            if not parse_data:
                 # print the data
                 self.debug_print("parse failed on: {0}".format(date_time_info))
                 epoch = int(time.mktime(datetime.utcnow().timetuple())) * 1000
             else:
                 dt = parse_data['dt']
-                if (not dt):
+                if not dt:
                     self.debug_print("Unable to parse dt")
                     return phantom.APP_ERROR
 
@@ -136,7 +232,7 @@ class ImapConnector(BaseConnector):
                 epoch = int(time.mktime(dt.timetuple())) * 1000
                 self.debug_print("Internal date Epoch: {0}({1})".format(dt, epoch))
 
-        if (config is None):
+        if config is None:
             config = self.get_config()
 
         process_email = ProcessEmail()
@@ -157,9 +253,10 @@ class ImapConnector(BaseConnector):
         resp_data = dict(resp_data)
 
         email_data = resp_data.get('data', {}).get('raw_email')
-        email_id = resp_data['source_data_identifier']
+        email_id = resp_data['source_data_identifier'].split()
+        email_id = email_id[-1]
 
-        if (not email_data):
+        if not email_data:
             return (action_result.set_status(phantom.APP_ERROR, "Container does not seem to be created from an IMAP email, raw_email data not found."), None, None)
 
         try:
@@ -180,14 +277,15 @@ class ImapConnector(BaseConnector):
         except TypeError:  # py3
             (result, data) = self._imap_conn.uid('fetch', str(muuid), "(INTERNALDATE RFC822)")
         except Exception as e:
-            return (action_result.set_status(phantom.APP_ERROR, IMAP_FETCH_ID_FAILED.format(muuid=muuid, excep=str(e))), email_data, data_time_info)
+            return (action_result.set_status(phantom.APP_ERROR, IMAP_FETCH_ID_FAILED.format(muuid=muuid,
+                excep=self._get_error_message_from_exception(e))), email_data, data_time_info)
 
-        if (result != 'OK'):
+        if result != 'OK':
             self.save_progress(IMAP_FETCH_ID_FAILED_RESULT, muuid=muuid, result=result, data=data)
             return (action_result.set_status(phantom.APP_ERROR,
                 IMAP_FETCH_ID_FAILED_RESULT.format(muuid=muuid, result=result, data=data)), email_data, data_time_info)
 
-        if (not data):
+        if not data:
             return (action_result.set_status(phantom.APP_ERROR,
                         "Data returned empty for {muuid} with result: {result} and data: {data}. Email ID possibly not present.".format(muuid=muuid, result=result, data=data)),
                     email_data, data_time_info)
@@ -197,7 +295,7 @@ class ImapConnector(BaseConnector):
                         "Data returned is not a list for {muuid} with result: {result} and data: {data}".format(muuid=muuid, result=result, data=data)),
                     email_data, data_time_info)
 
-        if (not data[0]):
+        if not data[0]:
             return (action_result.set_status(phantom.APP_ERROR,
                         "Data[0] returned empty for {muuid} with result: {result} and data: {data}. Email ID possibly not present.".format(muuid=muuid, result=result, data=data)),
                     email_data, data_time_info)
@@ -237,36 +335,36 @@ class ImapConnector(BaseConnector):
         try:
             (result, data) = self._imap_conn.uid('fetch', range, "(UID)")
         except Exception as e:
-            message = "Failed to get latest email ids. Message: {0}".format(e.message)
+            message = "Failed to get latest email ids. Message: {0}".format(self._get_error_message_from_exception(e))
             return (phantom.APP_ERROR, message, None)
 
-        if (result != 'OK'):
+        if result != 'OK':
             message = "Failed to get latest email ids. Server response: {0}".format(data)
             return (phantom.APP_ERROR, message, None)
 
-        if (not data):
+        if not data:
             return (phantom.APP_SUCCESS, "Empty data", None)
 
         # get the UIDs
         uids = []
         for line in data:
-            if (not line):
+            if not line:
                 continue
             try:
                 parse_data = parse('{left_ingore}(UID {uid})', line)
             except TypeError:  # py3
                 parse_data = parse('{left_ingore}(UID {uid})', line.decode('UTF-8'))
 
-            if (not parse_data):
+            if not parse_data:
                 continue
 
             uid = parse_data['uid']
-            if (not uid):
+            if not uid:
                 continue
 
             uids.append(int(uid))
 
-        if (not uids):
+        if not uids:
             return (phantom.APP_SUCCESS, "Empty UID list", None)
 
         # get the emails that came in on or after lower_id
@@ -275,7 +373,7 @@ class ImapConnector(BaseConnector):
         uids = greater_than_lower_id
 
         # if nothing came on or after the lower_id then return
-        if (not uids):
+        if not uids:
             return (phantom.APP_SUCCESS, "Empty UID list when greater than lower_id: {0}".format(lower_id), None)
 
         # sort it
@@ -297,7 +395,7 @@ class ImapConnector(BaseConnector):
 
         headers = mail.__dict__.get('_headers')
 
-        if (not headers):
+        if not headers:
             return {}
 
         ret_val = {}
@@ -314,7 +412,7 @@ class ImapConnector(BaseConnector):
             r = requests.get(url, verify=False)
             resp_json = r.json()
         except Exception as e:
-            self.debug_print("Unable to query Email container", e)
+            self.debug_print("Unable to query Email container. {}".format(self._get_error_message_from_exception(e)))
             return None
 
         if (resp_json.get('count', 0) <= 0):
@@ -324,7 +422,7 @@ class ImapConnector(BaseConnector):
         try:
             container_id = resp_json.get('data', [])[0]['id']
         except Exception as e:
-            self.debug_print("Container results, not proper", e)
+            self.debug_print("Container results, not proper", self._get_error_message_from_exception(e))
             return None
 
         return container_id
@@ -333,20 +431,24 @@ class ImapConnector(BaseConnector):
 
         action_result = self.add_action_result(ActionResult(dict(param)))
 
-        email_id = param.get(IMAP_JSON_ID)
-        container_id = param.get(IMAP_JSON_CONTAINER_ID)
+        email_id = self._handle_py_ver_compat_for_input_str(param.get(IMAP_JSON_ID))
+        container_id = None
+        if param.get(IMAP_JSON_CONTAINER_ID) is not None:
+            container_id = self._validate_integers(action_result, param.get(IMAP_JSON_CONTAINER_ID), IMAP_JSON_CONTAINER_ID)
+            if container_id is None:
+                return action_result.get_status()
         email_data = None
         data_time_info = None
 
         if (not email_id and not container_id):
             return action_result.set_status(phantom.APP_ERROR, "Please specify either id or container_id to get the email")
 
-        if (container_id):
+        if container_id:
             ret_val, email_data, email_id = self._get_email_data_from_container(container_id, action_result)
-        elif (email_id):
+        elif email_id:
             # Connect to the server
-            if (phantom.is_fail(self._connect_to_server(param))):
-                return self.get_status()
+            if (phantom.is_fail(self._connect_to_server(action_result, param))):
+                return action_result.get_status()
 
             ret_val, email_data, data_time_info = self._get_email_data(email_id, action_result)
 
@@ -361,7 +463,7 @@ class ImapConnector(BaseConnector):
 
         ingest_email = param.get(IMAP_JSON_INGEST_EMAIL, False)
 
-        if (not ingest_email):
+        if not ingest_email:
             return action_result.set_status(phantom.APP_SUCCESS, "Email not ingested.")
 
         # Create a config dictionary to represent everything is to be extracted.
@@ -388,29 +490,28 @@ class ImapConnector(BaseConnector):
 
         action_result.set_status(phantom.APP_SUCCESS)
 
-    def _poll_now(self, param):
+    def _poll_now(self, action_result, param):
 
         # Connect to the server
-        if (phantom.is_fail(self._connect_to_server(param))):
-            return self.get_status()
+        if (phantom.is_fail(self._connect_to_server(action_result, param))):
+            return action_result.get_status()
 
         # Get the maximum number of emails that we can pull
         config = self.get_config()
 
         # Get the maximum number of emails that we can pull, same as container count
-        try:
-            max_emails = int(param[phantom.APP_JSON_CONTAINER_COUNT])
-        except:
-            return self.set_status(phantom.APP_ERROR, "Invalid Container count")
+        max_emails = self._validate_integers(action_result, param.get(phantom.APP_JSON_CONTAINER_COUNT, IMAP_DEFAULT_CONTAINER_COUNT), "container_count")
+        if max_emails is None:
+            return action_result.get_status()
 
         self.save_progress("POLL NOW Getting {0} most recent email uid(s)".format(max_emails))
         ret_val, ret_msg, email_ids = self._get_email_ids_to_process(max_emails, 1, config[IMAP_JSON_INGEST_MANNER])
 
         if (phantom.is_fail(ret_val)):
-            return self.set_status(ret_val, ret_msg)
+            return action_result.set_status(ret_val, ret_msg)
 
-        if (not email_ids):
-            return self.set_status(phantom.APP_SUCCESS)
+        if not email_ids:
+            return action_result.set_status(phantom.APP_SUCCESS)
 
         if (len(email_ids) != max_emails):
             self.save_progress("Got {0} recent emails".format(len(email_ids)))
@@ -420,19 +521,21 @@ class ImapConnector(BaseConnector):
             try:
                 self._handle_email(email_id, param)
             except Exception as e:
-                self.debug_print("ErrorExp in _handle_email # {0}".format(i), e)
+                self.debug_print("ErrorExp in _handle_email # {0} {1}".format(i, self._get_error_message_from_exception(e)))
                 # continue to process the next email
 
-        return self.set_status(phantom.APP_SUCCESS)
+        return action_result.set_status(phantom.APP_SUCCESS)
 
     def _on_poll(self, param):
 
+        action_result = self.add_action_result(ActionResult(dict(param)))
+
         if (param.get(phantom.APP_JSON_CONTAINER_COUNT) != MAX_COUNT_VALUE):
-            return self._poll_now(param)
+            return self._poll_now(action_result, param)
 
         # Connect to the server
-        if (phantom.is_fail(self._connect_to_server(param))):
-            return self.get_status()
+        if (phantom.is_fail(self._connect_to_server(action_result, param))):
+            return action_result.get_status()
 
         lower_id = self._state.get('next_muid', '1')
 
@@ -452,10 +555,10 @@ class ImapConnector(BaseConnector):
         ret_val, ret_msg, email_ids = self._get_email_ids_to_process(max_emails, lower_id, config[IMAP_JSON_INGEST_MANNER])
 
         if (phantom.is_fail(ret_val)):
-            return self.set_status(ret_val, ret_msg)
+            return action_result.set_status(ret_val, ret_msg)
 
-        if (not email_ids):
-            return self.set_status(phantom.APP_SUCCESS)
+        if not email_ids:
+            return action_result.set_status(phantom.APP_SUCCESS)
 
         container_count = int(param.get(phantom.APP_JSON_CONTAINER_COUNT, IMAP_DEFAULT_CONTAINER_COUNT))
 
@@ -468,24 +571,26 @@ class ImapConnector(BaseConnector):
             try:
                 self._handle_email(email_id, param)
             except Exception as e:
-                self.debug_print("ErrorExp in _handle_email # {0}".format(i), e)
-                return self.set_status(phantom.APP_ERROR)
+                self.debug_print("ErrorExp in _handle_email # {0}".format(i), self._get_error_message_from_exception(e))
+                return action_result.set_status(phantom.APP_ERROR)
 
-        if (email_ids):
+        if email_ids:
             self._state['next_muid'] = int(email_ids[-1]) + 1
 
-        return self.set_status(phantom.APP_SUCCESS)
+        return action_result.set_status(phantom.APP_SUCCESS)
 
     def _test_connectivity(self, param):
 
+        action_result = self.add_action_result(ActionResult(dict(param)))
+
         # Connect to the server
-        if (phantom.is_fail(self._connect_to_server(param))):
-            self.append_to_message(IMAP_ERR_CONNECTIVITY_TEST)
-            return self.get_status()
+        if (phantom.is_fail(self._connect_to_server(action_result, param))):
+            action_result.append_to_message(self._handle_py_ver_compat_for_input_str(IMAP_ERR_CONNECTIVITY_TEST))
+            return action_result.get_status()
 
         self.save_progress(IMAP_SUCC_CONNECTIVITY_TEST)
 
-        return self.set_status(phantom.APP_SUCCESS, IMAP_SUCC_CONNECTIVITY_TEST)
+        return action_result.set_status(phantom.APP_SUCCESS, IMAP_SUCC_CONNECTIVITY_TEST)
 
     def handle_action(self, param):
         """Function that handles all the actions
@@ -543,7 +648,7 @@ if __name__ == '__main__':
 
     if (username and password):
         try:
-            print ("Accessing the Login page")
+            print("Accessing the Login page")
             r = requests.get(BaseConnector._get_phantom_base_url() + "login", verify=False)
             csrftoken = r.cookies['csrftoken']
 
@@ -556,7 +661,7 @@ if __name__ == '__main__':
             headers['Cookie'] = 'csrftoken=' + csrftoken
             headers['Referer'] = BaseConnector._get_phantom_base_url() + 'login'
 
-            print ("Logging into Platform to get the session id")
+            print("Logging into Platform to get the session id")
             r2 = requests.post(BaseConnector._get_phantom_base_url() + "login", verify=False, data=data, headers=headers)
             session_id = r2.cookies['sessionid']
         except Exception as e:
