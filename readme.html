@@ -25,7 +25,11 @@ In the <b>Asset Info</b> tab, the <b>Asset Name</b> and <b>Asset Description</b>
 The <b>Asset Settings</b> tab provides the configuration information Phantom uses to communicate with the mail server. Fill in the <b>Server IP/Hostname</b>, <b>Username</b>, and <b>Password</b>. The remaining configuration fields can be adjusted to suit the email environment. Do not click <b>Save</b> yet, navigate to the next tab, <b>Ingest Settings</b>.
 </p>
 <p>
-    <b>NOTE:</b> One of the configuration fields "Folder to ingest mails from (default is inbox)" can contain alphabets, digits, blank spaces as well as special characters in its value. Few values like Latin, Polish, etc characters and emojis are not considered valid for this field.
+    <b>NOTE:</b>
+    <ul>
+        <li> One of the configuration fields "Folder to ingest mails from (default is inbox)" can contain letters, digits, blank spaces as well as special characters in its value. Few values like Latin, Polish, etc characters and emojis are not considered valid for this field.</li>
+        <li> For the IMAP app, we won't be able to route traffic through the proxy. So if the user tries to add any proxy in variables of the asset, it won't affect the app's connectivity.</li>
+    </ul>
 </p>
     <a href="/app_resource/imap_9f2e9f72-b0e5-45d6-92a7-09ef820476c1/img/imap_asset_ingest.png">
         <img src="/app_resource/imap_9f2e9f72-b0e5-45d6-92a7-09ef820476c1/img/imap_asset_ingest.png"/>
