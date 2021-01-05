@@ -21,6 +21,7 @@ import mimetypes
 import socket
 import base64
 from email.header import decode_header
+import phantom.rules as phantom_rules
 from phantom.vault import Vault
 import shutil
 import hashlib
@@ -83,7 +84,6 @@ PROC_EMAIL_JSON_DOMAINS = "domains"
 PROC_EMAIL_JSON_MSG_ID = "message_id"
 PROC_EMAIL_JSON_EMAIL_HEADERS = "email_headers"
 PROC_EMAIL_CONTENT_TYPE_MESSAGE = "message/rfc822"
-PROC_EMAIL_JSON_FOLDER = "folder"
 
 URI_REGEX = r"[Hh][Tt][Tt][Pp][Ss]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+#]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+"
 EMAIL_REGEX = r"\b[A-Z0-9._%+-]+@+[A-Z0-9.-]+\.[A-Z]{2,}\b"
@@ -785,7 +785,15 @@ class ProcessEmail(object):
         # delete the header info, we dont make it a part of the container json
         del(container_data[PROC_EMAIL_JSON_EMAIL_HEADERS])
         container.update(_container_common)
-        self._container['source_data_identifier'] = "{} : {}".format(self._config.get(PROC_EMAIL_JSON_FOLDER, 'inbox'), email_id)
+        if not self._base_connector._is_hex:
+            try:
+                folder_hex = hashlib.md5(self._base_connector._folder_name)
+            except:
+                folder_hex = hashlib.md5(self._base_connector._folder_name.encode())
+            folder_sdi = folder_hex.hexdigest()
+        else:
+            folder_sdi = self._base_connector._folder_name
+        self._container['source_data_identifier'] = "{} : {}".format(folder_sdi, email_id)
         self._container['name'] = container_name
         self._container['data'] = {'raw_email': rfc822_email}
 
@@ -1034,7 +1042,10 @@ class ProcessEmail(object):
 
     def _add_vault_hashes_to_dictionary(self, cef_artifact, vault_id):
 
-        vault_info = Vault.get_file_info(vault_id=vault_id)
+        try:
+            success, message, vault_info = phantom_rules.vault_info(vault_id=vault_id)
+        except:
+            return phantom.APP_ERROR, "Could not retrieve vault file"
 
         if (not vault_info):
             return (phantom.APP_ERROR, "Vault ID not found")
