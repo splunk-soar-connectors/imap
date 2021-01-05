@@ -14,6 +14,7 @@ import phantom.app as phantom
 from imap_consts import *
 
 import imaplib
+import hashlib
 import codecs
 from datetime import datetime
 from datetime import timedelta
@@ -46,6 +47,8 @@ class ImapConnector(BaseConnector):
         self._state_file_path = None
         self._state = {}
         self._preprocess_container = lambda x: x
+        self._folder_name = None
+        self._is_hex = False
 
     def _handle_py_ver_compat_for_input_str(self, input_str):
         """
@@ -188,22 +191,22 @@ class ImapConnector(BaseConnector):
 
         self.save_progress(IMAP_GOT_LIST_FOLDERS)
 
-        folder = config.get(IMAP_JSON_FOLDER, 'inbox')
+        self._folder_name = config.get(IMAP_JSON_FOLDER, 'inbox')
         try:
-            (result, data) = self._imap_conn.select('"{}"'.format(
-                codecs.encode(folder, "utf-7").replace(b"&", b"&-").replace(b"'", b"\'").replace(b"+-", b"+").replace(b"+AH4", b"~").replace(b"+AFw", b"\\\\").decode()), True)
+            (result, data) = self._imap_conn.select('"{}"'.format(codecs.encode(self._folder_name, "utf-7").replace(b"&", b"&-").replace(b"'", b"\'").replace(b"+-", b"+")
+                .replace(b"+AH4", b"~").replace(b"+AFw", b"\\\\").decode()), True)
             if result != 'OK':
                 (result, data) = self._imap_conn.select('"{}"'.format(
-                    codecs.encode(folder, "utf-7").replace(b"+", b"&").decode()), True)
+                    codecs.encode(self._folder_name, "utf-7").replace(b"+", b"&").decode()), True)
         except Exception as e:
-            return action_result.set_status(phantom.APP_ERROR, "{}. Details: {}".format(IMAP_ERR_SELECTING_FOLDER.format(folder=self._handle_py_ver_compat_for_input_str(folder)),
-                self._get_error_message_from_exception(e)))
+            return action_result.set_status(phantom.APP_ERROR, "{}. Details: {}".format(IMAP_ERR_SELECTING_FOLDER.format(
+                    folder=self._handle_py_ver_compat_for_input_str(self._folder_name)), self._get_error_message_from_exception(e)))
 
         if result != 'OK':
             self.debug_print("Error selecting folder, result: {0} data: {1}".format(result, data))
-            return action_result.set_status(phantom.APP_ERROR, IMAP_ERR_SELECTING_FOLDER.format(folder=self._handle_py_ver_compat_for_input_str(folder)))
+            return action_result.set_status(phantom.APP_ERROR, IMAP_ERR_SELECTING_FOLDER.format(folder=self._handle_py_ver_compat_for_input_str(self._folder_name)))
 
-        self.save_progress(IMAP_SELECTED_FOLDER.format(folder=self._handle_py_ver_compat_for_input_str(folder)))
+        self.save_progress(IMAP_SELECTED_FOLDER.format(folder=self._handle_py_ver_compat_for_input_str(self._folder_name)))
 
         no_of_emails = data[0]
         self.debug_print("Total emails: {0}".format(no_of_emails))
@@ -242,34 +245,54 @@ class ImapConnector(BaseConnector):
 
         email_data = None
         email_id = None
+        folder_name = None
         resp_data = {}
 
         ret_val, resp_data, status_code = self.get_container_info(container_id)
 
         if (phantom.is_fail(ret_val)):
-            return (action_result.set_status(phantom.APP_ERROR, str(resp_data)), email_data, email_id)
+            return (action_result.set_status(phantom.APP_ERROR, str(resp_data)), email_data, email_id, folder_name)
 
         # Keep pylint happy
         resp_data = dict(resp_data)
 
         email_data = resp_data.get('data', {}).get('raw_email')
         email_id = resp_data['source_data_identifier'].split()
+        folder_name = email_id[0]
         email_id = email_id[-1]
 
         if not email_data:
-            return (action_result.set_status(phantom.APP_ERROR, "Container does not seem to be created from an IMAP email, raw_email data not found."), None, None)
+            return (action_result.set_status(phantom.APP_ERROR, "Container does not seem to be created from an IMAP email, raw_email data not found."), None, None, None)
 
         try:
             email_id = int(email_id)
         except:
-            return (action_result.set_status(phantom.APP_ERROR, "Container does not seem to be created from an IMAP email, email id not in proper format."), None, None)
+            return (action_result.set_status(phantom.APP_ERROR, "Container does not seem to be created from an IMAP email, email id not in proper format."), None, None, None)
 
-        return (phantom.APP_SUCCESS, email_data, email_id)
+        return (phantom.APP_SUCCESS, email_data, email_id, folder_name)
 
-    def _get_email_data(self, muuid, action_result):
+    def _get_email_data(self, action_result, muuid, folder=None, is_diff=False):
 
         email_data = None
         data_time_info = None
+
+        if is_diff:
+            try:
+                (result, data) = self._imap_conn.select('"{}"'.format(
+                    codecs.encode(folder, "utf-7").replace(b"&", b"&-").replace(b"'", b"\'").replace(b"+-", b"+").replace(b"+AH4", b"~").replace(b"+AFw", b"\\\\").decode()), True)
+                if result != 'OK':
+                    (result, data) = self._imap_conn.select('"{}"'.format(
+                        codecs.encode(folder, "utf-7").replace(b"+", b"&").decode()), True)
+            except Exception as e:
+                return (action_result.set_status(phantom.APP_ERROR, "{}. Details: {}".format(IMAP_ERR_SELECTING_FOLDER.format(
+                        folder=self._handle_py_ver_compat_for_input_str(folder)), self._get_error_message_from_exception(e))), email_data, data_time_info)
+
+            if result != 'OK':
+                self.debug_print("Error selecting folder, result: {0} data: {1}".format(result, data))
+                return (action_result.set_status(phantom.APP_ERROR, IMAP_ERR_SELECTING_FOLDER.format(
+                    folder=self._handle_py_ver_compat_for_input_str(folder))), email_data, data_time_info)
+
+            self.save_progress(IMAP_SELECTED_FOLDER.format(folder=self._handle_py_ver_compat_for_input_str(folder)))
 
         # query for the whole email body
         try:
@@ -320,7 +343,7 @@ class ImapConnector(BaseConnector):
 
         action_result = ActionResult(dict(param))
 
-        ret_val, email_data, data_time_info = self._get_email_data(muuid, action_result)
+        ret_val, email_data, data_time_info = self._get_email_data(action_result, muuid, folder=None, is_diff=False)
 
         if (phantom.is_fail(ret_val)):
             self.debug_print("Error in getting Email Data with id: {0}. Reason: {1}".format(muuid, action_result.get_message()))
@@ -404,9 +427,10 @@ class ImapConnector(BaseConnector):
 
         return ret_val
 
-    def _get_container_id(self, email_id):
+    def _get_container_id(self, email_id, folder):
 
-        url = '{0}/rest/container?_filter_source_data_identifier="{1}"&_filter_asset={2}'.format(self._get_phantom_base_url().strip('/'), email_id, self.get_asset_id())
+        url = '{0}/rest/container?_filter_source_data_identifier="{1} : {2}"&_filter_asset={3}'.format(
+                self._get_phantom_base_url().strip('/'), folder, email_id, self.get_asset_id())
 
         try:
             r = requests.get(url, verify=False)
@@ -444,16 +468,32 @@ class ImapConnector(BaseConnector):
             return action_result.set_status(phantom.APP_ERROR, "Please specify either id or container_id to get the email")
 
         if container_id:
-            ret_val, email_data, email_id = self._get_email_data_from_container(container_id, action_result)
+            ret_val, email_data, email_id, folder = self._get_email_data_from_container(container_id, action_result)
+            if (phantom.is_fail(ret_val)):
+                return action_result.get_status()
+            self._is_hex = True
+            self._folder_name = folder
         elif email_id:
-            # Connect to the server
             if (phantom.is_fail(self._connect_to_server(action_result, param))):
                 return action_result.get_status()
 
-            ret_val, email_data, data_time_info = self._get_email_data(email_id, action_result)
+            is_diff = False
+            folder = self._handle_py_ver_compat_for_input_str(param.get(IMAP_JSON_FOLDER, ""))
+            if folder and folder != self._folder_name:
+                is_diff = True
+                self._folder_name = folder
+            if not folder and self._folder_name:
+                folder = self._folder_name
 
-        if (phantom.is_fail(ret_val)):
-            return action_result.get_status()
+            ret_val, email_data, data_time_info = self._get_email_data(action_result, email_id, folder, is_diff)
+            if (phantom.is_fail(ret_val)):
+                return action_result.get_status()
+
+            try:
+                folder = hashlib.md5(folder)
+            except:
+                folder = hashlib.md5(folder.encode())
+            folder = folder.hexdigest()
 
         mail = email.message_from_string(email_data)
 
@@ -476,7 +516,7 @@ class ImapConnector(BaseConnector):
 
         header_date = mail_header_dict.get('Date')
         if (data_time_info is None) and (header_date is not None):
-            data_time_info = 'igonre_left "{0}" ignore_right'.format(header_date)
+            data_time_info = 'ignore_left "{0}" ignore_right'.format(header_date)
 
         ret_val, message = self._parse_email(email_id, email_data, data_time_info, config=config)
 
@@ -484,7 +524,7 @@ class ImapConnector(BaseConnector):
             return action_result.set_status(phantom.APP_ERROR, message)
 
         # get the container id that of the email that was ingested
-        container_id = self._get_container_id(email_id)
+        container_id = self._get_container_id(email_id, folder)
 
         action_result.update_summary({"container_id": container_id})
 

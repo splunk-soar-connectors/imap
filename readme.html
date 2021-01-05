@@ -92,7 +92,7 @@ The <b>Ingest Settings</b> tab sets the container type the ingested IMAP data wi
     <p>
         <ul>
         <li>The existing container's source_data_identifier has been modified. Hence, it is requested to the end-user to please update their existing playbooks by re-inserting | modifying | deleting the corresponding action blocks or by providing appropriate values to the action parameters in case source_data_identifier is used, to ensure the correct functioning of the playbooks created on the earlier versions of the app.</li>
-        <li>The format of container source_data_identifier has been changed from "{email_id}" to "{foldername} : {email_id}" which helps to create containers correctly while fetching data from the IMAP server. </li>
+        <li>The format of container source_data_identifier has been changed from "{email_id}" to "{hash_value_of_foldername} : {email_id}" which helps to create containers correctly while fetching data from the IMAP server. </li>
         </ul>
     </p>
 <h2>Artifacts created</h2>
