@@ -1,35 +1,41 @@
 <!-- File: readme.html
+  Copyright (c) 2014-2021 Splunk Inc.
 
-Copyright (c) 2014-2018 Splunk Inc.
-
-SPLUNK CONFIDENTIAL - Use or disclosure of this material in whole or in part
-without a valid written license from Splunk Inc. is PROHIBITED.
+  SPLUNK CONFIDENTIAL - Use or disclosure of this material in whole or in part
+  without a valid written license from Splunk Inc. is PROHIBITED.
 -->
 <h1>IMAP</h1>
     <p>
         It is not uncommon for enterprises to have a single mailbox configured where users can forward suspicious emails for further investigation. The ingestion feature in the IMAP app is primarily designed to pull emails from such a mailbox and create containers and artifacts in Phantom. 
     </p>
-<p>To add an IMAP Asset in Phantom, from the <b>Main Menu</b>, select <b>Apps</b>. In the <b>Search Apps</b> field, search for the <b>IMAP</b> App by typing "imap" into the search field and hitting enter. To the right of the App name, click on the <b>Configure New Asset</b> button.</p>
+<p>To add an IMAP Asset in Phantom, from the <b>Main Menu</b>, select <b>Apps</b>. In the <b>Search Apps</b> field, search for the <b>IMAP</b> App by typing "IMAP" into the search field and hitting enter. To the right of the App name, click on the <b>Configure New Asset</b> button.</p>
     <a href="/app_resource/imap_9f2e9f72-b0e5-45d6-92a7-09ef820476c1/img/imap_asset.png">  
         <img src="/app_resource/imap_9f2e9f72-b0e5-45d6-92a7-09ef820476c1/img/imap_asset.png"/>
     </a>
 <br><br>
 <p>
-In the <b>Asset Info</b> tab, the <b>Asset Name</b> and <b>Asset Description</b> can be whatever you want, we've chosen "IMAP Abuse" for this example. The <b>Product Vendor</b> and <b>Product Name</b> fields will be populated by Phantom and are not user configurable. Do not click <b>Save</b> yet, navigate to the next tab, <b>Asset Settings</b>. 
+In the <b>Asset Info</b> tab, the <b>Asset Name</b> and <b>Asset Description</b> can be whatever you want, we've chosen "IMAP Abuse" for this example. The <b>Product Vendor</b> and <b>Product Name</b> fields will be populated by Phantom and are not user-configurable. Do not click <b>Save</b> yet, navigate to the next tab, <b>Asset Settings</b>. 
 </p>
     <a href="/app_resource/imap_9f2e9f72-b0e5-45d6-92a7-09ef820476c1/img/imap_asset_settings.png">
         <img src="/app_resource/imap_9f2e9f72-b0e5-45d6-92a7-09ef820476c1/img/imap_asset_settings.png"/>
     </a>
 <br><br>
 <p>
-The <b>Asset Settings</b> tab provides the configuration information Phantom uses to communicate with mail server. Fill in the <b>Server IP/Hostname</b>, <b>Username</b>, and <b>Password</b>. The remaining configuration fields can be adjusted to suit the email environment. Do not click <b>Save</b> yet, navigate to the next tab, <b>Ingest Settings</b>.
+The <b>Asset Settings</b> tab provides the configuration information Phantom uses to communicate with the mail server. Fill in the <b>Server IP/Hostname</b>, <b>Username</b>, and <b>Password</b>. The remaining configuration fields can be adjusted to suit the email environment. Do not click <b>Save</b> yet, navigate to the next tab, <b>Ingest Settings</b>.
+</p>
+<p>
+    <b>NOTE:</b>
+    <ul>
+        <li> One of the configuration fields "Folder to ingest mails from (default is inbox)" can contain letters, digits, blank spaces as well as special characters in its value. Few values like Latin, Polish, etc characters and emojis are not considered valid for this field.</li>
+        <li> For the IMAP app, we won't be able to route traffic through the proxy. So if the user tries to add any proxy in variables of the asset, it won't affect the app's connectivity.</li>
+    </ul>
 </p>
     <a href="/app_resource/imap_9f2e9f72-b0e5-45d6-92a7-09ef820476c1/img/imap_asset_ingest.png">
         <img src="/app_resource/imap_9f2e9f72-b0e5-45d6-92a7-09ef820476c1/img/imap_asset_ingest.png"/>
     </a>
 <br><br>
 <p>
-The <b>Ingest Settings</b> tab sets the container type the ingested IMAP data will be placed. Select the appropriate label name or create a new label. In this example the label name <b>Email</b> has been selected. Check the checkbox for <b>Enable Polling</b>. Set the <b>Polling Interval</b> to the desired number of minutes. NOW you can click <b>Save</b>. The settings in the <b>Approval Settings</b> tab are not used for the communication between Phantom and IMAP and can be configured later.  You will see the saved Asset. Return to the <b>Ingest Settings</b> tab if you are not already there. Notice that you now have a <b>Poll Now</b> button, as shown here:    
+The <b>Ingest Settings</b> tab sets the container type the ingested IMAP data will be placed. Select the appropriate label name or create a new label. In this example, the label name <b>Email</b> has been selected. Check the checkbox for <b>Enable Polling</b>. Set the <b>Polling Interval</b> to the desired number of minutes. NOW you can click <b>Save</b>. The settings in the <b>Approval Settings</b> tab are not used for the communication between Phantom and IMAP and can be configured later.  You will see the saved Asset. Return to the <b>Ingest Settings</b> tab if you are not already there. Notice that you now have a <b>Poll Now</b> button, as shown here:    
 </p>
     <a href="/app_resource/imap_9f2e9f72-b0e5-45d6-92a7-09ef820476c1/img/imap_poll_now.png">
         <img src="/app_resource/imap_9f2e9f72-b0e5-45d6-92a7-09ef820476c1/img/imap_poll_now.png"/>
@@ -52,16 +58,16 @@ The <b>Ingest Settings</b> tab sets the container type the ingested IMAP data wi
        This mode is used to schedule a polling action on the asset at regular intervals, which is configured via the Ingest tab of the asset. It makes use of the following asset configuration parameters (among others):
 
     <ul>
-    <li>Maximum emails to poll first time</li>
+    <li>Maximum emails to poll the first time</li>
         The App detects the first time it is polling an asset and will ingest these number of emails (at the most).
     <li>Maximum emails to poll</li>
-        For all scheduled polls after the first, the app will ingest these number of emails.
+        For all scheduled polls after the first, the app will ingest these numbers of emails.
     <li>How to ingest</li>
-        Should the app be ingesting the latest emails or the oldest.
+        Should the app be ingesting the latest emails or the oldest?
     </ul>
-    <p>In case of Scheduled Polling, on every poll, the App remembers the last email that it has ingested and will pickup from the next one in the next secheduled poll.</p>
+    <p>In the case of Scheduled Polling, on every poll, the App remembers the last email that it has ingested and will pick up from the next one in the next scheduled poll.</p>
     <h3>How to ingest</h3>
-    <p>The app allows the user to configure how it should ingest emails on every scheduled poll, <i>oldest first</i> or <i>latest first</i>. Depending upon the scheduled interval and how busy the inbox is one of the following could potentially happen</p>
+    <p>The app allows the user to configure how it should ingest emails on every scheduled poll, <i>oldest first</i>, or <i>latest first</i>. Depending upon the scheduled interval and how busy the inbox is one of the following could potentially happen</p>
     <ul>
     <li>oldest first</li>
         If the app is configured to poll too slowly and the inbox is so busy that on every poll the maximum ingested emails is less than the number of new emails, the app will never catch up.
@@ -80,13 +86,20 @@ The <b>Ingest Settings</b> tab sets the container type the ingested IMAP data wi
       <li>Source ID</li>
           The source ID of the container will be set to the numeric Email ID that is set on the server.
       </ul>
-      The <d>data</b> section of the container will contain the complete raw email in a key named 'raw_email'. The UI allows the user to download this raw data json into a file. This same data can be extracted in a playbook also for further processing.
+      The <d>data</b> section of the container will contain the complete raw email in a key named 'raw_email'. The UI allows the user to download this raw data JSON into a file. This same data can be extracted in a playbook also for further processing.
+<h2>Playbook Backward Compatibility</h2>
+    <p>
+        <ul>
+        <li>The existing container's source_data_identifier has been modified. Hence, it is requested to the end-user to please update their existing playbooks by re-inserting | modifying | deleting the corresponding action blocks or by providing appropriate values to the action parameters in case source_data_identifier is used, to ensure the correct functioning of the playbooks created on the earlier versions of the app.</li>
+        <li>The format of container source_data_identifier has been changed from "{email_id}" to "{hash_value_of_foldername} : {email_id}" which helps to create containers correctly while fetching data from the IMAP server. </li>
+        </ul>
+    </p>
 <h2>Artifacts created</h2>
     <p>
        The App will create the following type of artifacts:
       <ul>
       <li>Email Artifact</li>
-      The email addresses that are found in the ingested email will be added as a separate artifact. Any attached email will also be scanned and the address present in the attached email will be added as a separate artifact. The emails are added as custom strings in the cef structure in the following manner.
+      The email addresses that are found in the ingested email will be added as a separate artifact. Any attached email will also be scanned and the address present in the attached email will be added as a separate artifact. The emails are added as custom strings in the CEF structure in the following manner.
       <table style="width:100%">
         <tr>
           <td><b>Artifact Field</b></td>
@@ -129,7 +142,7 @@ The <b>Ingest Settings</b> tab sets the container type the ingested IMAP data wi
     </li>
     <li>URL Artifact - cef.requestURL</li>
         <ul>
-            <li>If <b>extract_urls</b> is enabled, any url found in the email body will be added, with one CEF per url.</li>
+            <li>If <b>extract_urls</b> is enabled, any URL found in the email body will be added, with one CEF per URL.</li>
             <li>Any URLs found are added to the CEF structure of an artifact.</li>
             <li>The CEF for a URL is cef.requestURL.</li>
         </ul>
@@ -144,8 +157,8 @@ The <b>Ingest Settings</b> tab sets the container type the ingested IMAP data wi
       <li>Vault Artifact
         <ul>
           <li>If the email contains any attachments, these are extracted (if enabled in the config) and added to the vault of the Container.</li>
-          <li>At the same time the vault id and file name of this item is represented by a Vault Artifact.</li>
-          <li>The same file can be added to the vault multiple times. In this scenario the file name of the item added the second time onwards will be slightly different, but the vault id will still be the same. However there will be multiple artifacts created.</li>
+          <li>At the same time, the vault id and file name of this item is represented by a Vault Artifact.</li>
+          <li>The same file can be added to the vault multiple times. In this scenario, the file name of the item added the second time onwards will be slightly different, but the vault id will still be the same. However, there will be multiple artifacts created.</li>
           <li>Do note that the system does <i>not</i> duplicate the file bytes, only the metadata in the db.
           <table style="width:100%">
             <tr>
@@ -158,17 +171,17 @@ The <b>Ingest Settings</b> tab sets the container type the ingested IMAP data wi
             </tr>
             <tr>
               <td>cef.vaultID</tdLavel>
-              <td>Vault ID of the attachement</td>
+              <td>Vault ID of the attachment</td>
             </tr>
             <tr>
               <td>cef.fileName</td>
               <td>Attached filename used in the email</td>
             </tr>
           </table></li>
-            <li>You will notice additional cef fields <b>cs6</b> (value is the Vault ID) and <b>cs6Label</b>. These are added for backward compatibility only and will be deprecated in future releases. Please don't use these keys in playbooks.</li>
+            <li>You will notice additional CEF fields <b>cs6</b> (value is the Vault ID) and <b>cs6Label</b>. These are added for backward compatibility only and will be deprecated in future releases. Please don't use these keys in playbooks.</li>
         </ul>
       </li>
-      ** Since the vault id cannot be represented by a native cef field, it is placed in the <b>cs6</b> cef key and the cs6Label key is set to "vault_id".
+      ** Since the vault id cannot be represented by a native CEF field, it is placed in the <b>cs6</b> CEF key and the cs6Label key is set to "vault_id".
     <a href="/app_resource/imap_9f2e9f72-b0e5-45d6-92a7-09ef820476c1/img/imap_vault_artifact.png">
         <img src="/app_resource/imap_9f2e9f72-b0e5-45d6-92a7-09ef820476c1/img/imap_vault_artifact.png"/>
       </ul>
