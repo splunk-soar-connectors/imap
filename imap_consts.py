@@ -60,7 +60,7 @@ IMAP_VALIDATE_INTEGER_MESSAGE = "Please provide a valid integer value in the {ke
 IMAP_ERROR_CODE_MESSAGE = "Error code unavailable"
 IMAP_ERROR_MESSAGE = "Unknown error occurred. Please check the asset configuration and|or action parameters"
 TYPE_ERROR_MESSAGE = "Error occurred while connecting to the IMAP server. Please check the asset configuration and|or the action parameters"
-PARSE_ERROR_MESSAGE = "Unable to parse the error message. Please check the asset configuration and|or action parameters"
+IMAP_EXCEPTION_ERR_MESSAGE = "Error Code: {0}. Error Message: {1}"
 
 IMAP_MILLISECONDS_IN_A_DAY = 86400000
 IMAP_NUMBER_OF_DAYS_BEFORE_ENDTIME = 10
