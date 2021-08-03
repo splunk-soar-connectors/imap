@@ -13,15 +13,14 @@ import tempfile
 from collections import OrderedDict
 import os
 import re
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, UnicodeDammit
 import phantom.app as phantom
 import phantom.utils as ph_utils
+import phantom.rules as phantom_rules
 import mimetypes
 import socket
 import base64
-from email.header import decode_header
-import phantom.rules as phantom_rules
-from phantom.vault import Vault
+from email.header import decode_header, make_header
 import shutil
 import hashlib
 import json
@@ -186,7 +185,9 @@ class ProcessEmail(object):
         try:
             soup = BeautifulSoup(file_data, "html.parser")
         except Exception as e:
-            self._debug_print("Handled exception", e)
+            error_code, error_msg = self._base_connector._get_error_message_from_exception(e)
+            err = "Error Code: {0}. Error Message: {1}".format(error_code, error_msg)
+            self._debug_print("Error occurred while extracting domains of the URLs. {0}".format(err))
             return
 
         uris = []
@@ -262,14 +263,16 @@ class ProcessEmail(object):
 
         file_data = None
         try:
-            with open(local_file_path, 'r', newline='') as f:  # in py3, empty newline prevents auto-conversion
-                file_data = f.read()
-        except TypeError:  # py3
             with open(local_file_path, 'r') as f:
+                file_data = f.read()
+        except:
+            with open(local_file_path, 'rb') as f:
                 file_data = f.read()
 
         if ((file_data is None) or (len(file_data) == 0)):
             return phantom.APP_ERROR
+
+        file_data = UnicodeDammit(file_data).unicode_markup.encode('utf-8').decode('utf-8')
 
         self._parse_email_headers_as_inline(file_data, parsed_mail, charset, email_id)
 
@@ -392,18 +395,22 @@ class ProcessEmail(object):
             decoded_strings = [decode_header(x)[0] for x in encoded_strings]
             decoded_strings = [{'value': x[0], 'encoding': x[1]} for x in decoded_strings]
         except Exception as e:
-            self._debug_print("decoding: {0}".format(encoded_strings), e)
+            error_code, error_msg = self._base_connector._get_error_message_from_exception(e)
+            err = "Error Code: {0}. Error Message: {1}".format(error_code, error_msg)
+            self._debug_print("Decoding: {0}. {1}".format(encoded_strings, err))
             return def_name
 
         # convert to dict for safe access, if it's an empty list, the dict will be empty
         decoded_strings = dict(enumerate(decoded_strings))
 
+        new_str = ''
+        new_str_create_count = 0
         for i, encoded_string in enumerate(encoded_strings):
 
             decoded_string = decoded_strings.get(i)
 
             if (not decoded_string):
-                # notihing to replace with
+                # nothing to replace with
                 continue
 
             value = decoded_string.get('value')
@@ -413,14 +420,26 @@ class ProcessEmail(object):
                 # notihing to replace with
                 continue
 
-            if (encoding != 'utf-8'):
-                value = str(value, encoding).encode('utf-8')
-
             try:
-                # substitute the encoded string with the decoded one
-                input_str = input_str.replace(encoded_string, value)
+                if (encoding != 'utf-8'):
+                    value = str(value, encoding)
             except:
                 pass
+
+            try:
+                # commenting the existing approach due to a new approach being deployed below
+                # substitute the encoded string with the decoded one
+                # input_str = input_str.replace(encoded_string, value)
+                # make new string insted of replacing in the input string because issue find in PAPP-9531
+                if value:
+                    new_str += UnicodeDammit(value).unicode_markup
+                    new_str_create_count += 1
+            except:
+                pass
+        # replace input string with new string because issue find in PAPP-9531
+        if new_str and new_str_create_count == len(encoded_strings):
+            self._debug_print("Creating a new string entirely from the encoded_strings and assiging into input_str")
+            input_str = new_str
 
         return input_str
 
@@ -436,7 +455,10 @@ class ProcessEmail(object):
         if (not subject):
             return def_cont_name
 
-        return self._decode_uni_string(subject, def_cont_name)
+        try:
+            return str(make_header(decode_header(subject)))
+        except:
+            return self._decode_uni_string(subject, def_cont_name)
 
     def _handle_if_body(self, content_disp, content_id, content_type, part, bodies, file_path):
 
@@ -464,6 +486,12 @@ class ProcessEmail(object):
         bodies.append({'file_path': file_path, 'charset': part.get_content_charset()})
 
         return (phantom.APP_SUCCESS, False)
+
+    def remove_child_info(self, file_path):
+        if file_path.endswith('_True'):
+            return file_path.rstrip('_True')
+        else:
+            return file_path.rstrip('_False')
 
     def _handle_attachment(self, part, file_name, file_path):
 
@@ -499,8 +527,31 @@ class ProcessEmail(object):
         part_payload = part.get_payload(decode=True)
         if (not part_payload):
             return phantom.APP_SUCCESS
-        with open(file_path, 'wb') as f:
-            f.write(part_payload)
+        try:
+            with open(file_path, 'wb') as f:
+                f.write(part_payload)
+        except IOError as e:
+            error_code, error_msg = self._base_connector._get_error_message_from_exception(e)
+            try:
+                if "File name too long" in error_msg:
+                    new_file_name = "ph_long_file_name_temp"
+                    file_path = "{}{}".format(self.remove_child_info(file_path).rstrip(file_name.replace('<', '').replace('>', '').replace(' ', '')), new_file_name)
+                    self._debug_print("Original filename: {}".format(self._base_connector._handle_py_ver_compat_for_input_str(file_name)))
+                    self._debug_print("Modified filename: {}".format(new_file_name))
+                    with open(file_path, 'wb') as long_file:
+                        long_file.write(part_payload)
+                else:
+                    self._debug_print("Error occurred while adding file to Vault. Error Details: {}".format(error_msg))
+                    return
+            except Exception as e:
+                error_code, error_msg = self._base_connector._get_error_message_from_exception(e)
+                self._debug_print("Error occurred while adding file to Vault. Error Details: {}".format(error_msg))
+                return
+        except Exception as e:
+            error_code, error_msg = self._base_connector._get_error_message_from_exception(e)
+            self._debug_print("Error occurred while adding file to Vault. Error Details: {}".format(error_msg))
+            return
+
         files.append({'file_name': file_name, 'file_path': file_path, 'meta_info': attach_meta_info})
 
     def _handle_part(self, part, part_index, tmp_dir, extract_attach, parsed_mail):
@@ -602,9 +653,22 @@ class ProcessEmail(object):
         subject = headers.get('Subject')
         if (subject):
             try:
-                headers['decodedSubject'] = self._decode_uni_string(subject.encode('utf8'), subject)
-            except TypeError:  # py3
+                headers['decodedSubject'] = str(make_header(decode_header(subject)))
+            except:
                 headers['decodedSubject'] = self._decode_uni_string(subject, subject)
+
+        to_data = headers.get('To')
+        if (to_data):
+            headers['decodedTo'] = self._decode_uni_string(to_data, to_data)
+
+        from_data = headers.get('From')
+        if (from_data):
+            headers['decodedFrom'] = self._decode_uni_string(from_data, from_data)
+
+        CC_data = headers.get('CC')
+        if (CC_data):
+            headers['decodedCC'] = self._decode_uni_string(CC_data, CC_data)
+
         return headers
 
     def _parse_email_headers(self, parsed_mail, part, charset=None, add_email_id=None):
@@ -676,6 +740,9 @@ class ProcessEmail(object):
                         encoding = cur_part['Content-Transfer-Encoding']
                         if encoding and 'base64' in encoding.lower():
                             payload = base64.b64decode(''.join(payload.splitlines()))
+                        elif encoding != '8bit':
+                            payload = cur_part.get_payload(decode=True)
+                            payload = UnicodeDammit(payload).unicode_markup.encode('utf-8').decode('utf-8')
                         try:
                             json.dumps({'body': payload})
                         except TypeError:  # py3
@@ -1093,20 +1160,18 @@ class ProcessEmail(object):
         vault_attach_dict[phantom.APP_JSON_ACTION_NAME] = self._base_connector.get_action_name()
         vault_attach_dict[phantom.APP_JSON_APP_RUN_ID] = self._base_connector.get_app_run_id()
 
-        vault_ret = {}
-
         file_name = self._decode_uni_string(file_name, file_name)
 
         try:
-            vault_ret = Vault.add_attachment(local_file_path, container_id, file_name, vault_attach_dict)
+            success, message, vault_id = phantom_rules.vault_add(file_location=local_file_path, container=container_id, file_name=file_name, metadata=vault_attach_dict)
         except Exception as e:
             self._base_connector.debug_print(phantom.APP_ERR_FILE_ADD_TO_VAULT.format(e))
             return (phantom.APP_ERROR, phantom.APP_ERROR)
 
         # self._base_connector.debug_print("vault_ret_dict", vault_ret_dict)
 
-        if (not vault_ret.get('succeeded')):
-            self._base_connector.debug_print("Failed to add file to Vault: {0}".format(json.dumps(vault_ret)))
+        if not success:
+            self._base_connector.debug_print("Failed to add file to Vault: {0}".format(json.dumps(message)))
             return (phantom.APP_ERROR, phantom.APP_ERROR)
 
         # add the vault id artifact to the container
@@ -1114,13 +1179,13 @@ class ProcessEmail(object):
         if (file_name):
             cef_artifact.update({'fileName': file_name})
 
-        if (phantom.APP_JSON_HASH in vault_ret):
-            cef_artifact.update({'vaultId': vault_ret[phantom.APP_JSON_HASH],
-                'cs6': vault_ret[phantom.APP_JSON_HASH],
+        if vault_id:
+            cef_artifact.update({'vaultId': vault_id,
+                'cs6': vault_id,
                 'cs6Label': 'Vault ID'})
 
             # now get the rest of the hashes and add them to the cef artifact
-            self._add_vault_hashes_to_dictionary(cef_artifact, vault_ret[phantom.APP_JSON_HASH])
+            self._add_vault_hashes_to_dictionary(cef_artifact, vault_id)
 
         if (not cef_artifact):
             return (phantom.APP_SUCCESS, phantom.APP_ERROR)
