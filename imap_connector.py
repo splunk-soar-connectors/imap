@@ -7,6 +7,7 @@
 # --
 
 # Phantom imports
+from email.header import decode_header, make_header
 import phantom.app as phantom
 
 # THIS Connector imports
@@ -71,8 +72,6 @@ class ImapConnector(BaseConnector):
         :return: error message
         """
 
-        error_msg = IMAP_ERROR_MESSAGE
-        error_code = IMAP_ERROR_CODE_MESSAGE
         try:
             if hasattr(e, "args"):
                 if len(e.args) > 1:
@@ -95,16 +94,7 @@ class ImapConnector(BaseConnector):
         except:
             error_msg = IMAP_ERROR_MESSAGE
 
-        try:
-            if error_code in IMAP_ERROR_CODE_MESSAGE:
-                error_text = "Error Message: {0}".format(error_msg)
-            else:
-                error_text = "Error Code: {0}. Error Message: {1}".format(error_code, error_msg)
-        except:
-            self.debug_print("Error occurred while parsing error message")
-            error_text = PARSE_ERROR_MESSAGE
-
-        return error_text
+        return error_code, error_msg
 
     def _validate_integers(self, action_result, parameter, key, allow_zero=False):
         """ This method is to check if the provided input parameter value
@@ -166,7 +156,9 @@ class ImapConnector(BaseConnector):
             else:
                 self._imap_conn = imaplib.IMAP4(server)
         except Exception as e:
-            return action_result.set_status(phantom.APP_ERROR, "{}. Details: {}".format(IMAP_ERR_CONNECTING_TO_SERVER, self._get_error_message_from_exception(e)))
+            error_code, error_msg = self._get_error_message_from_exception(e)
+            error_text = IMAP_EXCEPTION_ERR_MESSAGE.format(error_code, error_msg)
+            return action_result.set_status(phantom.APP_ERROR, "{}. Details: {}".format(IMAP_ERR_CONNECTING_TO_SERVER, error_text))
 
         self.save_progress(IMAP_CONNECTED_TO_SERVER)
 
@@ -174,7 +166,9 @@ class ImapConnector(BaseConnector):
         try:
             (result, data) = self._imap_conn.login(config[phantom.APP_JSON_USERNAME], config[phantom.APP_JSON_PASSWORD])
         except Exception as e:
-            return action_result.set_status(phantom.APP_ERROR, "{}. Details: {}".format(IMAP_ERR_LOGGING_IN_TO_SERVER, self._get_error_message_from_exception(e)))
+            error_code, error_msg = self._get_error_message_from_exception(e)
+            error_text = IMAP_EXCEPTION_ERR_MESSAGE.format(error_code, error_msg)
+            return action_result.set_status(phantom.APP_ERROR, "{}. Details: {}".format(IMAP_ERR_LOGGING_IN_TO_SERVER, error_text))
 
         if result != 'OK':
             self.debug_print("Logging in error, result: {0} data: {1}".format(result, data))
@@ -186,7 +180,9 @@ class ImapConnector(BaseConnector):
         try:
             (result, data) = self._imap_conn.list()
         except Exception as e:
-            return action_result.set_status(phantom.APP_ERROR, "{}. Details: {}".format(IMAP_ERR_LISTING_FOLDERS, self._get_error_message_from_exception(e)))
+            error_code, error_msg = self._get_error_message_from_exception(e)
+            error_text = IMAP_EXCEPTION_ERR_MESSAGE.format(error_code, error_msg)
+            return action_result.set_status(phantom.APP_ERROR, "{}. Details: {}".format(IMAP_ERR_LISTING_FOLDERS, error_text))
 
         self.save_progress(IMAP_GOT_LIST_FOLDERS)
 
@@ -198,8 +194,10 @@ class ImapConnector(BaseConnector):
                 (result, data) = self._imap_conn.select('"{}"'.format(
                     codecs.encode(self._folder_name, "utf-7").replace(b"+", b"&").decode()), True)
         except Exception as e:
+            error_code, error_msg = self._get_error_message_from_exception(e)
+            error_text = IMAP_EXCEPTION_ERR_MESSAGE.format(error_code, error_msg)
             return action_result.set_status(phantom.APP_ERROR, "{}. Details: {}".format(IMAP_ERR_SELECTING_FOLDER.format(
-                    folder=self._handle_py_ver_compat_for_input_str(self._folder_name)), self._get_error_message_from_exception(e)))
+                    folder=self._handle_py_ver_compat_for_input_str(self._folder_name)), error_text))
 
         if result != 'OK':
             self.debug_print("Error selecting folder, result: {0} data: {1}".format(result, data))
@@ -299,8 +297,10 @@ class ImapConnector(BaseConnector):
         except TypeError:  # py3
             (result, data) = self._imap_conn.uid('fetch', str(muuid), "(INTERNALDATE RFC822)")
         except Exception as e:
+            error_code, error_msg = self._get_error_message_from_exception(e)
+            error_text = IMAP_EXCEPTION_ERR_MESSAGE.format(error_code, error_msg)
             return (action_result.set_status(phantom.APP_ERROR, IMAP_FETCH_ID_FAILED.format(muuid=muuid,
-                excep=self._get_error_message_from_exception(e))), email_data, data_time_info)
+                excep=error_text)), email_data, data_time_info)
 
         if result != 'OK':
             self.save_progress(IMAP_FETCH_ID_FAILED_RESULT, muuid=muuid, result=result, data=data)
@@ -357,7 +357,9 @@ class ImapConnector(BaseConnector):
         try:
             (result, data) = self._imap_conn.uid('fetch', range, "(UID)")
         except Exception as e:
-            message = "Failed to get latest email ids. Message: {0}".format(self._get_error_message_from_exception(e))
+            error_code, error_msg = self._get_error_message_from_exception(e)
+            error_text = IMAP_EXCEPTION_ERR_MESSAGE.format(error_code, error_msg)
+            message = "Failed to get latest email ids. Message: {0}".format(error_text)
             return (phantom.APP_ERROR, message, None)
 
         if result != 'OK':
@@ -422,7 +424,11 @@ class ImapConnector(BaseConnector):
 
         ret_val = {}
         for header in headers:
-            ret_val[header[0]] = header[1]
+            try:
+                ret_val[header[0]] = str(make_header(decode_header(header[1])))
+            except:
+                process_email = ProcessEmail()
+                ret_val[header[0]] = process_email._decode_uni_string(header[1], header[1])
 
         return ret_val
 
@@ -435,7 +441,9 @@ class ImapConnector(BaseConnector):
             r = requests.get(url, verify=False)
             resp_json = r.json()
         except Exception as e:
-            self.debug_print("Unable to query Email container. {}".format(self._get_error_message_from_exception(e)))
+            error_code, error_msg = self._get_error_message_from_exception(e)
+            error_text = IMAP_EXCEPTION_ERR_MESSAGE.format(error_code, error_msg)
+            self.debug_print("Unable to query Email container. {}".format(error_text))
             return None
 
         if (resp_json.get('count', 0) <= 0):
@@ -445,7 +453,9 @@ class ImapConnector(BaseConnector):
         try:
             container_id = resp_json.get('data', [])[0]['id']
         except Exception as e:
-            self.debug_print("Container results, not proper", self._get_error_message_from_exception(e))
+            error_code, error_msg = self._get_error_message_from_exception(e)
+            error_text = IMAP_EXCEPTION_ERR_MESSAGE.format(error_code, error_msg)
+            self.debug_print("Container results, not proper", error_text)
             return None
 
         return container_id
@@ -560,7 +570,9 @@ class ImapConnector(BaseConnector):
             try:
                 self._handle_email(email_id, param)
             except Exception as e:
-                self.debug_print("ErrorExp in _handle_email # {0} {1}".format(i, self._get_error_message_from_exception(e)))
+                error_code, error_msg = self._get_error_message_from_exception(e)
+                error_text = IMAP_EXCEPTION_ERR_MESSAGE.format(error_code, error_msg)
+                self.debug_print("ErrorExp in _handle_email # {0} {1}".format(i, error_text))
                 # continue to process the next email
 
         return action_result.set_status(phantom.APP_SUCCESS)
@@ -610,7 +622,9 @@ class ImapConnector(BaseConnector):
             try:
                 self._handle_email(email_id, param)
             except Exception as e:
-                self.debug_print("ErrorExp in _handle_email # {0}".format(i), self._get_error_message_from_exception(e))
+                error_code, error_msg = self._get_error_message_from_exception(e)
+                error_text = IMAP_EXCEPTION_ERR_MESSAGE.format(error_code, error_msg)
+                self.debug_print("ErrorExp in _handle_email # {0}".format(i), error_text)
                 return action_result.set_status(phantom.APP_ERROR)
 
         if email_ids:
