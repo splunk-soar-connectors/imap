@@ -853,9 +853,9 @@ class ProcessEmail(object):
         container.update(_container_common)
         if not self._base_connector._is_hex:
             try:
-                folder_hex = hashlib.md5(self._base_connector._folder_name)
+                folder_hex = hashlib.sha256(self._base_connector._folder_name)
             except:
-                folder_hex = hashlib.md5(self._base_connector._folder_name.encode())
+                folder_hex = hashlib.sha256(self._base_connector._folder_name.encode())
             folder_sdi = folder_hex.hexdigest()
         else:
             folder_sdi = self._base_connector._folder_name
@@ -1252,9 +1252,9 @@ class ProcessEmail(object):
             return None
 
         try:
-            return hashlib.md5(input_dict_str).hexdigest()
+            return hashlib.sha256(input_dict_str).hexdigest()
         except TypeError:  # py3
-            return hashlib.md5(input_dict_str.encode('UTF-8')).hexdigest()
+            return hashlib.sha256(input_dict_str.encode('UTF-8')).hexdigest()
 
     def _del_tmp_dirs(self):
         """Remove any tmp_dirs that were created."""

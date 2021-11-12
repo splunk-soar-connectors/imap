@@ -499,9 +499,9 @@ class ImapConnector(BaseConnector):
                 return action_result.get_status()
 
             try:
-                folder = hashlib.md5(folder)
+                folder = hashlib.sha256(folder)
             except:
-                folder = hashlib.md5(folder.encode())
+                folder = hashlib.sha256(folder.encode())
             folder = folder.hexdigest()
 
         mail = email.message_from_string(email_data)
