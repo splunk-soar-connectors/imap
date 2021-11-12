@@ -5,13 +5,13 @@
     "type": "email",
     "publisher": "Splunk",
     "main_module": "imap_connector.py",
-    "app_version": "3.1.3",
-    "utctime_updated": "2021-08-09T04:54:59.000000Z",
+    "app_version": "3.2.2",
+    "utctime_updated": "2021-11-11T15:16:53.000000Z",
     "package_name": "phantom_imap",
     "product_vendor": "Generic",
     "product_name": "IMAP",
     "product_version_regex": ".*",
-    "min_phantom_version": "4.9.39220",
+    "min_phantom_version": "4.10.0.40961",
     "latest_tested_versions": [
         "On-premise Outlook Web Access v14.3.301.0, Mailbox server Microsoft Exchange v14.3.123.0"
     ],
