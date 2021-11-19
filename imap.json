@@ -11,7 +11,7 @@
     "product_vendor": "Generic",
     "product_name": "IMAP",
     "product_version_regex": ".*",
-    "min_phantom_version": "4.10.0.40961",
+    "min_phantom_version": "5.0.0",
     "latest_tested_versions": [
         "On-premise Outlook Web Access v14.3.301.0, Mailbox server Microsoft Exchange v14.3.123.0"
     ],
