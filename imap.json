@@ -12,6 +12,7 @@
     "product_name": "IMAP",
     "product_version_regex": ".*",
     "min_phantom_version": "5.0.0",
+    "fips_compliant": true,
     "latest_tested_versions": [
         "On-premise Outlook Web Access v14.3.301.0, Mailbox server Microsoft Exchange v14.3.123.0"
     ],
