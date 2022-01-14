@@ -1257,10 +1257,23 @@ class ProcessEmail(object):
             self._base_connector.debug_print('Handled exception in _create_dict_hash', e)
             return None
 
+        action_result, fips_enabled = self._base_connector._get_fips_enabled()
+        # if the rest/system_settings call fails, we do not know if the platform is in fips mode or not
+        # we should fail to avoid using the wrong hashing algorithm
+        if (not action_result):
+            self._base_connector.debug_print('Error occurred in _create_dict_hash. Failed to retrieve system_settings')
+            return None
+
         try:
-            return hashlib.sha256(input_dict_str).hexdigest()
+            if (not fips_enabled):
+                return hashlib.md5(input_dict_str).hexdigest()
+            else:
+                return hashlib.sha256(input_dict_str).hexdigest()
         except TypeError:  # py3
-            return hashlib.sha256(input_dict_str.encode('UTF-8')).hexdigest()
+            if (not fips_enabled):
+                return hashlib.md5(input_dict_str.encode('UTF-8')).hexdigest()
+            else:
+                return hashlib.sha256(input_dict_str.encode('UTF-8')).hexdigest()
 
     def _del_tmp_dirs(self):
         """Remove any tmp_dirs that were created."""
