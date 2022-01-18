@@ -218,39 +218,18 @@ class ImapConnector(BaseConnector):
 
         return phantom.APP_SUCCESS
 
-    def _make_rest_calls_to_phantom(self, action_result, url):
-
-        r = requests.get(url, verify=False)
-        if not r:
-            message = 'Status Code: {0}'.format(r.status_code)
-            if (r.text):
-                message += " Error from Server: {0}".format(r.text.replace('{', '{{').replace('}', '}}'))
-            return (action_result.set_status(phantom.APP_ERROR, "Error retrieving system info, {0}".format(message)), None)
-
+    def _get_fips_enabled(self):
         try:
-            resp_json = r.json()
-        except Exception as e:
-            return (action_result.set_status(phantom.APP_ERROR, "Error processing response JSON", e), None)
+            from phantom_common.install_info import is_fips_enabled
+        except ImportError:
+            return False
 
-        return (phantom.APP_SUCCESS, resp_json)
-
-    def _get_fips_enabled(self, action_result=None):
-        if (not action_result):
-            action_result = ActionResult()
-        temp_base_url = self.get_phantom_base_url()
-        ret_val, resp_json = self._make_rest_calls_to_phantom(action_result, temp_base_url + 'rest/system_settings?sections[\"fips\"]')
-
-        if (phantom.is_fail(ret_val)):
-            return (False, False)
-
-        if (resp_json.get("fips")):
-            is_fips_enabled = resp_json.get("fips").get("enabled")
-            if (is_fips_enabled):
-                self.debug_print('fips is enabled')
-                return (True, True)
-
-        self.debug_print('fips is not enabled')
-        return (True, False)
+        fips_enabled = is_fips_enabled()
+        if (fips_enabled):
+            self.debug_print('fips is enabled')
+        else:
+            self.debug_print('fips is not enabled')
+        return fips_enabled
 
     def _parse_email(self, muuid, rfc822_email, date_time_info=None, config=None):
 
@@ -540,13 +519,7 @@ class ImapConnector(BaseConnector):
             if (phantom.is_fail(ret_val)):
                 return action_result.get_status()
 
-        action_result, fips_enabled = self._get_fips_enabled()
-
-        # if the rest/system_settings call fails, we do not know if the platform is in fips mode or not
-        # we should fail to avoid using the wrong hashing algorithm
-        if (not action_result):
-            raise Exception('Failed to retrieve system_settings. Cannot determine if phantom instance is in fips mode or not')
-
+        fips_enabled = self._get_fips_enabled()
         # if fips is not enabled, we should continue with our existing md5 usage for generating hashes
         # to not impact existing customers
         try:
