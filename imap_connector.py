@@ -349,7 +349,7 @@ class ImapConnector(BaseConnector):
         if not data[0]:
             return (action_result.set_status(phantom.APP_ERROR,
                         "Data[0] returned empty for {muuid} with result: {result} and data: {data}. Email ID possibly not \
-                            present.".format(muuid=muuid,result=result, data=data)), email_data, data_time_info)
+                            present.".format(muuid=muuid, result=result, data=data)), email_data, data_time_info)
 
         if (type(data[0]) != tuple):
             return (action_result.set_status(phantom.APP_ERROR,
