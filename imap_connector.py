@@ -301,8 +301,8 @@ class ImapConnector(BaseConnector):
         if is_diff:
             try:
                 (result, data) = self._imap_conn.select('"{}"'.format(
-                    codecs.encode(folder, "utf-7").replace(b"&", b"&-").replace(b"'", b"\'").replace(b"+-", b"+")
-                        .replace(b"+AH4", b"~").replace(b"+AFw", b"\\\\").decode()), True)
+                    codecs.encode(folder, "utf-7").replace(b"&", b"&-").replace(b"'", b"\'").replace(
+                        b"+-", b"+").replace(b"+AH4", b"~").replace(b"+AFw", b"\\\\").decode()), True)
                 if result != 'OK':
                     (result, data) = self._imap_conn.select('"{}"'.format(
                         codecs.encode(folder, "utf-7").replace(b"+", b"&").decode()), True)
@@ -349,8 +349,7 @@ class ImapConnector(BaseConnector):
         if not data[0]:
             return (action_result.set_status(phantom.APP_ERROR,
                         "Data[0] returned empty for {muuid} with result: {result} and data: {data}. Email ID possibly not \
-                            present.".format(muuid=muuid,result=result, data=data)),
-                    email_data, data_time_info)
+                            present.".format(muuid=muuid,result=result, data=data)), email_data, data_time_info)
 
         if (type(data[0]) != tuple):
             return (action_result.set_status(phantom.APP_ERROR,

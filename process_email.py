@@ -634,8 +634,8 @@ class ProcessEmail(object):
         headers_ci = CaseInsensitiveDict(headers)
 
         for curr_header_lower in self._headers_from_ews:
-            if (headers_ci.get('message-id', 'default_value1').strip() == curr_header_lower.get('message-id',
-                'default_value2').strip()):
+            if (headers_ci.get('message-id', 'default_value1').strip() == curr_header_lower.get(
+                    'message-id', 'default_value2').strip()):
                 # the headers match with the one that we got from the ews API, so update it
                 headers.update(curr_header_lower)
 
@@ -943,8 +943,8 @@ class ProcessEmail(object):
 
         return (ret_val, "Email Parsed", results)
 
-    def process_email(self, base_connector, rfc822_email, email_id, config, epoch, container_id=None,
-        email_headers=None, attachments_data=None):
+    def process_email(self, base_connector, rfc822_email, email_id, config, epoch,
+            container_id=None, email_headers=None, attachments_data=None):
 
         self._base_connector = base_connector
         self._config = config
