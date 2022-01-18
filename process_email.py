@@ -12,27 +12,27 @@
 # the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND,
 # either express or implied. See the License for the specific language governing permissions
 # and limitations under the License.
-from builtins import str
-from builtins import object
-import email
-import tempfile
-from collections import OrderedDict
-import os
-import re
-from bs4 import BeautifulSoup, UnicodeDammit
-import phantom.app as phantom
-import phantom.utils as ph_utils
-import phantom.rules as phantom_rules
-import mimetypes
-import socket
 import base64
-from email.header import decode_header, make_header
-import shutil
+import email
 import hashlib
 import json
-import magic
-from requests.structures import CaseInsensitiveDict
+import mimetypes
+import os
+import re
+import shutil
+import socket
+import tempfile
+from builtins import object, str
+from collections import OrderedDict
 from copy import deepcopy
+from email.header import decode_header, make_header
+
+import magic
+import phantom.app as phantom
+import phantom.rules as phantom_rules
+import phantom.utils as ph_utils
+from bs4 import BeautifulSoup, UnicodeDammit
+from requests.structures import CaseInsensitiveDict
 
 _container_common = {
     "run_automation": False  # Don't run any playbooks, when this artifact is added

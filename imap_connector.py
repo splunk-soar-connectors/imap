@@ -13,33 +13,28 @@
 # either express or implied. See the License for the specific language governing permissions
 # and limitations under the License.
 #
-#
-# Phantom imports
-from email.header import decode_header, make_header
-import phantom.app as phantom
-
-# THIS Connector imports
-from imap_consts import *
-
-import imaplib
-import hashlib
 import codecs
-from datetime import datetime
-from datetime import timedelta
-import time
-from parse import parse
-from dateutil import tz
-import json
-from process_email import ProcessEmail
 import email
-import requests
+import hashlib
+import imaplib
+import json
 import socket
 import sys
+import time
 from builtins import str
-from bs4 import UnicodeDammit
+from datetime import datetime, timedelta
+from email.header import decode_header, make_header
 
-from phantom.base_connector import BaseConnector
+import phantom.app as phantom
+import requests
+from bs4 import UnicodeDammit
+from dateutil import tz
+from parse import parse
 from phantom.action_result import ActionResult
+from phantom.base_connector import BaseConnector
+
+from imap_consts import *
+from process_email import ProcessEmail
 
 
 class ImapConnector(BaseConnector):
@@ -715,8 +710,9 @@ class ImapConnector(BaseConnector):
 
 if __name__ == '__main__':
 
-    import pudb
     import argparse
+
+    import pudb
 
     pudb.set_trace()
     in_json = None
