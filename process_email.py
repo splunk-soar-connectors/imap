@@ -1273,12 +1273,12 @@ class ProcessEmail(object):
 
         fips_enabled = self._base_connector._get_fips_enabled()
         try:
-            if (not fips_enabled):
+            if not fips_enabled:
                 return hashlib.md5(input_dict_str).hexdigest()
             else:
                 return hashlib.sha256(input_dict_str).hexdigest()
         except TypeError:  # py3
-            if (not fips_enabled):
+            if not fips_enabled:
                 return hashlib.md5(input_dict_str.encode('UTF-8')).hexdigest()
             else:
                 return hashlib.sha256(input_dict_str.encode('UTF-8')).hexdigest()

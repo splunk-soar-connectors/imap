@@ -528,12 +528,12 @@ class ImapConnector(BaseConnector):
         # if fips is not enabled, we should continue with our existing md5 usage for generating hashes
         # to not impact existing customers
         try:
-            if (not fips_enabled):
+            if not fips_enabled:
                 folder = hashlib.md5(folder)
             else:
                 folder = hashlib.sha256(folder)
         except:
-            if (not fips_enabled):
+            if not fips_enabled:
                 folder = hashlib.md5(folder.encode())
             else:
                 folder = hashlib.sha256(folder.encode())
