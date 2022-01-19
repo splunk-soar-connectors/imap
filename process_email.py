@@ -867,11 +867,20 @@ class ProcessEmail(object):
         # delete the header info, we dont make it a part of the container json
         del(container_data[PROC_EMAIL_JSON_EMAIL_HEADERS])
         container.update(_container_common)
+        fips_enabled = self._get_fips_enabled()
+        # if fips is not enabled, we should continue with our existing md5 usage for generating hashes
+        # to not impact existing customers
         if not self._base_connector._is_hex:
             try:
-                folder_hex = hashlib.sha256(self._base_connector._folder_name)
+                if not fips_enabled:
+                    folder_hex = hashlib.md5(self._base_connector._folder_name)
+                else:
+                    folder_hex = hashlib.sha256(self._base_connector._folder_name)
             except:
-                folder_hex = hashlib.sha256(self._base_connector._folder_name.encode())
+                if not fips_enabled:
+                    folder_hex = hashlib.md5(self._base_connector._folder_name.encode())
+                else:
+                    folder_hex = hashlib.sha256(self._base_connector._folder_name)
             folder_sdi = folder_hex.hexdigest()
         else:
             folder_sdi = self._base_connector._folder_name
