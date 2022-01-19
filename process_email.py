@@ -867,7 +867,7 @@ class ProcessEmail(object):
         # delete the header info, we dont make it a part of the container json
         del(container_data[PROC_EMAIL_JSON_EMAIL_HEADERS])
         container.update(_container_common)
-        fips_enabled = self._get_fips_enabled()
+        fips_enabled = self._base_connector._get_fips_enabled()
         # if fips is not enabled, we should continue with our existing md5 usage for generating hashes
         # to not impact existing customers
         if not self._base_connector._is_hex:
