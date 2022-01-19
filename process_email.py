@@ -880,7 +880,7 @@ class ProcessEmail(object):
                 if not fips_enabled:
                     folder_hex = hashlib.md5(self._base_connector._folder_name.encode())
                 else:
-                    folder_hex = hashlib.sha256(self._base_connector._folder_name)
+                    folder_hex = hashlib.sha256(self._base_connector._folder_name.encode())
             folder_sdi = folder_hex.hexdigest()
         else:
             folder_sdi = self._base_connector._folder_name
