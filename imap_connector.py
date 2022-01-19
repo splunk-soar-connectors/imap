@@ -13,33 +13,28 @@
 # either express or implied. See the License for the specific language governing permissions
 # and limitations under the License.
 #
-#
-# Phantom imports
-from email.header import decode_header, make_header
-import phantom.app as phantom
-
-# THIS Connector imports
-from imap_consts import *
-
-import imaplib
-import hashlib
 import codecs
-from datetime import datetime
-from datetime import timedelta
-import time
-from parse import parse
-from dateutil import tz
-import json
-from process_email import ProcessEmail
 import email
-import requests
+import hashlib
+import imaplib
+import json
 import socket
 import sys
+import time
 from builtins import str
-from bs4 import UnicodeDammit
+from datetime import datetime, timedelta
+from email.header import decode_header, make_header
 
-from phantom.base_connector import BaseConnector
+import phantom.app as phantom
+import requests
+from bs4 import UnicodeDammit
+from dateutil import tz
+from parse import parse
 from phantom.action_result import ActionResult
+from phantom.base_connector import BaseConnector
+
+from imap_consts import *
+from process_email import ProcessEmail
 
 
 class ImapConnector(BaseConnector):
@@ -196,7 +191,8 @@ class ImapConnector(BaseConnector):
 
         self._folder_name = config.get(IMAP_JSON_FOLDER, 'inbox')
         try:
-            (result, data) = self._imap_conn.select('"{}"'.format(codecs.encode(self._folder_name, "utf-7").replace(b"&", b"&-").replace(b"'", b"\'").replace(b"+-", b"+")
+            (result, data) = self._imap_conn.select('"{}"'.format(codecs.encode(self._folder_name, "utf-7").replace(b"&", b"&-")
+                .replace(b"'", b"\'").replace(b"+-", b"+")
                 .replace(b"+AH4", b"~").replace(b"+AFw", b"\\\\").decode()), True)
             if result != 'OK':
                 (result, data) = self._imap_conn.select('"{}"'.format(
@@ -209,7 +205,8 @@ class ImapConnector(BaseConnector):
 
         if result != 'OK':
             self.debug_print("Error selecting folder, result: {0} data: {1}".format(result, data))
-            return action_result.set_status(phantom.APP_ERROR, IMAP_ERR_SELECTING_FOLDER.format(folder=self._handle_py_ver_compat_for_input_str(self._folder_name)))
+            return action_result.set_status(phantom.APP_ERROR, IMAP_ERR_SELECTING_FOLDER.format(
+                folder=self._handle_py_ver_compat_for_input_str(self._folder_name)))
 
         self.save_progress(IMAP_SELECTED_FOLDER.format(folder=self._handle_py_ver_compat_for_input_str(self._folder_name)))
 
@@ -217,6 +214,19 @@ class ImapConnector(BaseConnector):
         self.debug_print("Total emails: {0}".format(no_of_emails))
 
         return phantom.APP_SUCCESS
+
+    def _get_fips_enabled(self):
+        try:
+            from phantom_common.install_info import is_fips_enabled
+        except ImportError:
+            return False
+
+        fips_enabled = is_fips_enabled()
+        if fips_enabled:
+            self.debug_print('FIPS is enabled')
+        else:
+            self.debug_print('FIPS is not enabled')
+        return fips_enabled
 
     def _parse_email(self, muuid, rfc822_email, date_time_info=None, config=None):
 
@@ -267,12 +277,14 @@ class ImapConnector(BaseConnector):
         email_id = email_id[-1]
 
         if not email_data:
-            return (action_result.set_status(phantom.APP_ERROR, "Container does not seem to be created from an IMAP email, raw_email data not found."), None, None, None)
+            return (action_result.set_status(phantom.APP_ERROR, "Container does not seem to be created from an IMAP email, \
+                raw_email data not found."), None, None, None)
 
         try:
             email_id = int(email_id)
         except:
-            return (action_result.set_status(phantom.APP_ERROR, "Container does not seem to be created from an IMAP email, email id not in proper format."), None, None, None)
+            return (action_result.set_status(phantom.APP_ERROR, "Container does not seem to be created from an IMAP email, \
+                email id not in proper format."), None, None, None)
 
         return (phantom.APP_SUCCESS, email_data, email_id, folder_name)
 
@@ -284,13 +296,15 @@ class ImapConnector(BaseConnector):
         if is_diff:
             try:
                 (result, data) = self._imap_conn.select('"{}"'.format(
-                    codecs.encode(folder, "utf-7").replace(b"&", b"&-").replace(b"'", b"\'").replace(b"+-", b"+").replace(b"+AH4", b"~").replace(b"+AFw", b"\\\\").decode()), True)
+                    codecs.encode(folder, "utf-7").replace(b"&", b"&-").replace(b"'", b"\'").replace(
+                        b"+-", b"+").replace(b"+AH4", b"~").replace(b"+AFw", b"\\\\").decode()), True)
                 if result != 'OK':
                     (result, data) = self._imap_conn.select('"{}"'.format(
                         codecs.encode(folder, "utf-7").replace(b"+", b"&").decode()), True)
             except Exception as e:
                 return (action_result.set_status(phantom.APP_ERROR, "{}. Details: {}".format(IMAP_ERR_SELECTING_FOLDER.format(
-                        folder=self._handle_py_ver_compat_for_input_str(folder)), self._get_error_message_from_exception(e))), email_data, data_time_info)
+                        folder=self._handle_py_ver_compat_for_input_str(folder)), self._get_error_message_from_exception(e))),
+                            email_data, data_time_info)
 
             if result != 'OK':
                 self.debug_print("Error selecting folder, result: {0} data: {1}".format(result, data))
@@ -317,27 +331,31 @@ class ImapConnector(BaseConnector):
 
         if not data:
             return (action_result.set_status(phantom.APP_ERROR,
-                        "Data returned empty for {muuid} with result: {result} and data: {data}. Email ID possibly not present.".format(muuid=muuid, result=result, data=data)),
+                        "Data returned empty for {muuid} with result: {result} and data: {data}. Email ID possibly not present."
+                            .format(muuid=muuid, result=result, data=data)),
                     email_data, data_time_info)
 
         if (type(data) != list):
             return (action_result.set_status(phantom.APP_ERROR,
-                        "Data returned is not a list for {muuid} with result: {result} and data: {data}".format(muuid=muuid, result=result, data=data)),
+                        "Data returned is not a list for {muuid} with result: {result} and data: {data}".format(muuid=muuid,
+                            result=result, data=data)),
                     email_data, data_time_info)
 
         if not data[0]:
             return (action_result.set_status(phantom.APP_ERROR,
-                        "Data[0] returned empty for {muuid} with result: {result} and data: {data}. Email ID possibly not present.".format(muuid=muuid, result=result, data=data)),
-                    email_data, data_time_info)
+                        "Data[0] returned empty for {muuid} with result: {result} and data: {data}. Email ID possibly not \
+                            present.".format(muuid=muuid, result=result, data=data)), email_data, data_time_info)
 
         if (type(data[0]) != tuple):
             return (action_result.set_status(phantom.APP_ERROR,
-                        "Data[0] returned is not a list for {muuid} with result: {result} and data: {data}".format(muuid=muuid, result=result, data=data)),
+                        "Data[0] returned is not a list for {muuid} with result: {result} and data: \
+                            {data}".format(muuid=muuid, result=result, data=data)),
                     email_data, data_time_info)
 
         if (len(data[0]) < 2):
             return (action_result.set_status(phantom.APP_ERROR,
-                        "Data[0] does not contain all parts for {muuid} with result: {result} and data: {data}".format(muuid=muuid, result=result, data=data)),
+                        "Data[0] does not contain all parts for {muuid} with result: {result} and data: \
+                            {data}".format(muuid=muuid, result=result, data=data)),
                     email_data, data_time_info)
 
         # parse the email body into an object, we've ALREADY VALIDATED THAT DATA[0] CONTAINS >= 2 ITEMS
@@ -506,11 +524,20 @@ class ImapConnector(BaseConnector):
             if (phantom.is_fail(ret_val)):
                 return action_result.get_status()
 
-            try:
+        fips_enabled = self._get_fips_enabled()
+        # if fips is not enabled, we should continue with our existing md5 usage for generating hashes
+        # to not impact existing customers
+        try:
+            if not fips_enabled:
+                folder = hashlib.md5(folder)
+            else:
                 folder = hashlib.sha256(folder)
-            except:
+        except:
+            if not fips_enabled:
+                folder = hashlib.md5(folder.encode())
+            else:
                 folder = hashlib.sha256(folder.encode())
-            folder = folder.hexdigest()
+        folder = folder.hexdigest()
 
         mail = email.message_from_string(email_data)
 
@@ -557,7 +584,8 @@ class ImapConnector(BaseConnector):
         config = self.get_config()
 
         # Get the maximum number of emails that we can pull, same as container count
-        max_emails = self._validate_integers(action_result, param.get(phantom.APP_JSON_CONTAINER_COUNT, IMAP_DEFAULT_CONTAINER_COUNT), "container_count")
+        max_emails = self._validate_integers(action_result, param.get(phantom.APP_JSON_CONTAINER_COUNT,
+            IMAP_DEFAULT_CONTAINER_COUNT), "container_count")
         if max_emails is None:
             return action_result.get_status()
 
@@ -682,8 +710,9 @@ class ImapConnector(BaseConnector):
 
 if __name__ == '__main__':
 
-    import pudb
     import argparse
+
+    import pudb
 
     pudb.set_trace()
     in_json = None
