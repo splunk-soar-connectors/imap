@@ -21,6 +21,7 @@ import json
 import socket
 import sys
 import time
+import os
 from builtins import str
 from datetime import datetime, timedelta
 from email.header import decode_header, make_header
@@ -35,6 +36,8 @@ from phantom.base_connector import BaseConnector
 
 from imap_consts import *
 from process_email import ProcessEmail
+
+from request_handler import RequestStateHandler, _get_dir_name_from_app_name
 
 
 class ImapConnector(BaseConnector):
@@ -64,7 +67,7 @@ class ImapConnector(BaseConnector):
         try:
             if input_str and self._python_version == 2:
                 input_str = UnicodeDammit(input_str).unicode_markup.encode('utf-8')
-        except:
+        except Exception:
             self.debug_print("Error occurred while handling python 2to3 compatibility for the input string")
 
         return input_str
@@ -75,27 +78,17 @@ class ImapConnector(BaseConnector):
         :return: error message
         """
 
+        error_code = IMAP_ERR_CODE_MESSAGE
+        error_msg = IMAP_ERR_MESSAGE
         try:
             if hasattr(e, "args"):
                 if len(e.args) > 1:
                     error_code = e.args[0]
                     error_msg = e.args[1]
                 elif len(e.args) == 1:
-                    error_code = IMAP_ERROR_CODE_MESSAGE
                     error_msg = e.args[0]
-            else:
-                error_code = IMAP_ERROR_CODE_MESSAGE
-                error_msg = IMAP_ERROR_MESSAGE
-        except:
-            error_code = IMAP_ERROR_CODE_MESSAGE
-            error_msg = IMAP_ERROR_MESSAGE
-
-        try:
-            error_msg = self._handle_py_ver_compat_for_input_str(error_msg)
-        except TypeError:
-            error_msg = TYPE_ERROR_MESSAGE
-        except:
-            error_msg = IMAP_ERROR_MESSAGE
+        except Exception:
+            self.debug_print("Error occurred while retrieving exception information")
 
         return error_code, error_msg
 
@@ -112,7 +105,7 @@ class ImapConnector(BaseConnector):
                 return None
             parameter = int(parameter)
 
-        except:
+        except Exception:
             action_result.set_status(phantom.APP_ERROR, IMAP_VALIDATE_INTEGER_MESSAGE.format(key=key))
             return None
 
@@ -125,14 +118,225 @@ class ImapConnector(BaseConnector):
 
         return parameter
 
+    def _make_rest_calls_to_phantom(self, action_result, url):
+
+        r = requests.get(url, verify=False)  # nosemgrep
+        if not r:
+            message = 'Status Code: {0}'.format(r.status_code)
+            if r.text:
+                message = "{} Error from Server: {}".format(message, r.text.replace('{', '{{').replace('}', '}}'))
+            return action_result.set_status(phantom.APP_ERROR, "Error retrieving system info, {0}".format(message)), None
+
+        try:
+            resp_json = r.json()
+        except Exception as e:
+            return action_result.set_status(phantom.APP_ERROR, "Error processing response JSON", e), None
+
+        return phantom.APP_SUCCESS, resp_json
+
+    def _get_phantom_base_url_imap(self, action_result):
+
+        ret_val, resp_json = self._make_rest_calls_to_phantom(action_result, '{}rest/system_info'.format(self.get_phantom_base_url()))
+
+        if phantom.is_fail(ret_val):
+            return action_result.get_status(), None
+
+        phantom_base_url = resp_json.get('base_url')
+        if not phantom_base_url:
+            return action_result.set_status(
+                phantom.APP_ERROR, "Phantom Base URL is not configured, please configure it in System Settings"), None
+
+        phantom_base_url = phantom_base_url.strip("/")
+
+        return phantom.APP_SUCCESS, phantom_base_url
+
+    def _get_asset_name(self, action_result):
+
+        ret_val, resp_json = self._make_rest_calls_to_phantom(
+            action_result, '{}rest/asset/{}'.format(self.get_phantom_base_url(), self.get_asset_id()))
+
+        if phantom.is_fail(ret_val):
+            return action_result.get_status(), None
+
+        asset_name = resp_json.get('name')
+        if not asset_name:
+            return action_result.set_status(phantom.APP_ERROR, "Error retrieving asset name"), None
+
+        return phantom.APP_SUCCESS, asset_name
+
+    def _get_url_to_app_rest(self, action_result=None):
+        if not action_result:
+            action_result = ActionResult()
+        # get the phantom ip to redirect to
+        ret_val, phantom_base_url = self._get_phantom_base_url_imap(action_result)
+        if phantom.is_fail(ret_val):
+            return action_result.get_status(), action_result.get_message()
+        # get the asset name
+        ret_val, asset_name = self._get_asset_name(action_result)
+        if phantom.is_fail(ret_val):
+            return action_result.get_status(), action_result.get_message()
+        self.save_progress('Using Phantom base URL as: {0}'.format(phantom_base_url))
+        app_json = self.get_app_json()
+        app_name = app_json['name']
+        app_dir_name = _get_dir_name_from_app_name(app_name)
+        url_to_app_rest = "{0}/rest/handler/{1}_{2}/{3}".format(phantom_base_url, app_dir_name, app_json['appid'], asset_name)
+        return phantom.APP_SUCCESS, url_to_app_rest
+
+    def _interactive_auth_initial(self, client_id, rsh, client_secret):
+
+        state = rsh.load_state()
+        asset_id = self.get_asset_id()
+
+        ret_val, app_rest_url = self._get_url_to_app_rest()
+        if phantom.is_fail(ret_val):
+            return phantom.APP_ERROR, app_rest_url
+
+        config = self.get_config()
+        request_url = config.get("auth_url")
+
+        # set proxy if configured
+        proxy = {}
+        if 'HTTP_PROXY' in os.environ:
+            proxy['http'] = os.environ.get('HTTP_PROXY')
+        if 'HTTPS_PROXY' in os.environ:
+            proxy['https'] = os.environ.get('HTTPS_PROXY')
+        state['proxy'] = proxy
+
+        state['client_id'] = config['client_id']
+        state['redirect_url'] = app_rest_url
+        state['request_url'] = request_url
+        state['token_url'] = config.get("token_url")
+        state['client_secret'] = config.get('client_secret')
+
+        rsh.save_state(state)
+        self.save_state(state)
+        self.save_progress("Redirect URI: {}".format(app_rest_url))
+        params = {
+            'response_type': 'code',
+            'client_id': config['client_id'],
+            'state': asset_id,
+            'redirect_uri': app_rest_url,
+            'scope': "https://mail.google.com/",
+            "access_type": "offline",
+            "prompt": "consent"
+        }
+
+        url = requests.Request('GET', request_url, params=params).prepare().url
+        url = '{}&'.format(url)
+
+        self.save_progress("To continue, open this link in a new tab in your browser")
+        self.save_progress(url)
+
+        for i in range(0, 60):
+            time.sleep(5)
+            self.save_progress("." * i)
+            state = rsh.load_state()
+            oauth_token = state.get('oauth_token')
+            if oauth_token:
+                break
+            elif state.get('error'):
+                return phantom.APP_ERROR, "Error retrieving OAuth token"
+        else:
+            return phantom.APP_ERROR, "Timed out waiting for login"
+
+        self._state['oauth_token'] = oauth_token
+        return phantom.APP_SUCCESS, ""
+
+    def _interactive_auth_refresh(self):
+
+        config = self.get_config()
+        client_id = config.get("client_id")
+        client_secret = config.get("client_secret")
+
+        oauth_token = self._state.get('oauth_token', {})
+        if not oauth_token.get("refresh_token"):
+            return phantom.APP_ERROR, "Unable to get refresh token. Has Test Connectivity been run?"
+
+        if client_id != self._state.get('client_id', ''):
+            return phantom.APP_ERROR, "Client ID has been changed. Please run Test Connectivity again."
+
+        refresh_token = oauth_token['refresh_token']
+
+        request_url = config.get("token_url")
+        body = {
+            'grant_type': 'refresh_token',
+            'client_id': client_id,
+            'refresh_token': refresh_token,
+            'client_secret': client_secret
+        }
+        try:
+            r = requests.post(request_url, data=body)  # nosemgrep: python.requests.best-practice.use-timeout.use-timeout
+        except Exception as e:
+            return phantom.APP_ERROR, "Error refreshing token: {}".format(str(e))
+
+        try:
+            response_json = r.json()
+            if response_json.get("error"):
+                return phantom.APP_ERROR, "Invalid refresh token. Please run the test connectivity again."
+            oauth_token.update(r.json())
+        except Exception:
+            return phantom.APP_ERROR, "Error retrieving OAuth Token"
+
+        self._state['oauth_token'] = oauth_token
+        return phantom.APP_SUCCESS, ""
+
+    def _set_interactive_auth(self, action_result):
+
+        config = self.get_config()
+        client_id = config.get("client_id")
+        client_secret = config.get("client_secret")
+
+        if self.get_action_identifier() != phantom.ACTION_ID_TEST_ASSET_CONNECTIVITY:
+            if not self._state.get('oauth_token', {}).get('access_token'):
+                return phantom.APP_ERROR, "Unable to get access token. Has Test Connectivity been run?"
+
+            ret_val = self._connect_to_server(action_result)
+            if phantom.is_fail(ret_val):
+                return phantom.APP_ERROR, action_result.get_message()
+
+            self.save_state(self._state)
+            return phantom.APP_SUCCESS, ""
+        else:
+            self.debug_print("Try to generate token from authorization code")
+            asset_id = self.get_asset_id()
+            rsh = RequestStateHandler(asset_id)  # Use the states from the OAuth login
+            ret_val, message = self._interactive_auth_initial(client_id, rsh, client_secret)
+            if phantom.is_fail(ret_val):
+                return phantom.APP_ERROR, message
+
+            self._state['client_id'] = client_id
+            self.save_state(self._state)
+            rsh.delete_state()
+
+            ret_val = self._connect_to_server(action_result)
+            if phantom.is_fail(ret_val):
+                return phantom.APP_ERROR, action_result.get_message()
+            return phantom.APP_SUCCESS, ""
+
     def initialize(self):
 
         self._state = self.load_state()
+        config = self.get_config()
         # Fetching the Python major version
         try:
             self._python_version = int(sys.version_info[0])
-        except:
+        except Exception:
             return self.set_status(phantom.APP_ERROR, "Error occurred while fetching the Phantom server's Python major version")
+
+        if config.get("auth_type", "Basic") == "Basic":
+            required_params = ["username", "password"]
+            for key in required_params:
+                if not config.get(key):
+                    return self.set_status(phantom.APP_ERROR, IMAP_REQUIRED_PARAM_BASIC.format(key))
+
+        elif config.get("auth_type", "Basic") == "OAuth":
+            required_params = ["client_id", "client_secret", "auth_url", "token_url"]
+            for key in required_params:
+                if not config.get(key):
+                    return self.set_status(phantom.APP_ERROR, IMAP_REQUIRED_PARAM_OAUTH.format(key))
+
+        else:
+            return self.set_status(phantom.APP_ERROR, "Please provide a valid authentication mechanism to use")
 
         return phantom.APP_SUCCESS
 
@@ -142,9 +346,36 @@ class ImapConnector(BaseConnector):
 
         return phantom.APP_SUCCESS
 
-    def _connect_to_server(self, action_result, param):
+    def _generate_oauth_string(self, username, access_token):
+        """Generates an IMAP OAuth2 authentication string.
+
+        See https://developers.google.com/google-apps/gmail/oauth2_overview
+
+        Args:
+            username: the username (email address) of the account to authenticate
+            access_token: An OAuth2 access token.
+            base64_encode: Whether to base64-encode the output.
+
+        Returns:
+            The SASL argument for the OAuth2 mechanism.
+        """
+        auth_string = 'user=%s\1auth=Bearer %s\1\1' % (username, access_token)
+        return auth_string
+
+    def _connect_to_server_helper(self, action_result):
+        config = self.get_config()
+        if config.get("auth_type", "Basic") == "Basic":
+            return self._connect_to_server(action_result)
+        else:
+            ret_val, message = self._set_interactive_auth(action_result)
+            if not ret_val:
+                return action_result.set_status(phantom.APP_ERROR, message)
+            return phantom.APP_SUCCESS
+
+    def _connect_to_server(self, action_result, first_try=True):
 
         config = self.get_config()
+        is_oauth = config.get("auth_type", "Basic") == "OAuth"
 
         use_ssl = config[IMAP_JSON_USE_SSL]
         server = config[phantom.APP_JSON_SERVER]
@@ -154,24 +385,34 @@ class ImapConnector(BaseConnector):
 
         # Connect to the server
         try:
-            if use_ssl:
+            if is_oauth or use_ssl:
                 self._imap_conn = imaplib.IMAP4_SSL(server)
             else:
                 self._imap_conn = imaplib.IMAP4(server)
         except Exception as e:
             error_code, error_msg = self._get_error_message_from_exception(e)
             error_text = IMAP_EXCEPTION_ERR_MESSAGE.format(error_code, error_msg)
-            return action_result.set_status(phantom.APP_ERROR, "{}. Details: {}".format(IMAP_ERR_CONNECTING_TO_SERVER, error_text))
+            return action_result.set_status(phantom.APP_ERROR, IMAP_GENERAL_ERR_MESSAGE.format(IMAP_ERR_CONNECTING_TO_SERVER, error_text))
 
         self.save_progress(IMAP_CONNECTED_TO_SERVER)
 
         # Login
         try:
-            (result, data) = self._imap_conn.login(config[phantom.APP_JSON_USERNAME], config[phantom.APP_JSON_PASSWORD])
+            if is_oauth:
+                auth_string = self._generate_oauth_string(config[phantom.APP_JSON_USERNAME], self._state['oauth_token']['access_token'])
+                result, data = self._imap_conn.authenticate('XOAUTH2', lambda _: auth_string)
+            else:
+                result, data = self._imap_conn.login(config[phantom.APP_JSON_USERNAME], config[phantom.APP_JSON_PASSWORD])
         except Exception as e:
             error_code, error_msg = self._get_error_message_from_exception(e)
+            if first_try and is_oauth and "Invalid credentials" in error_msg:
+                self.debug_print("Try to generate token from refresh token")
+                ret_val, message = self._interactive_auth_refresh()
+                if not ret_val:
+                    return action_result.set_status(phantom.APP_ERROR, message)
+                return self._connect_to_server(action_result, False)
             error_text = IMAP_EXCEPTION_ERR_MESSAGE.format(error_code, error_msg)
-            return action_result.set_status(phantom.APP_ERROR, "{}. Details: {}".format(IMAP_ERR_LOGGING_IN_TO_SERVER, error_text))
+            return action_result.set_status(phantom.APP_ERROR, IMAP_GENERAL_ERR_MESSAGE.format(IMAP_ERR_LOGGING_IN_TO_SERVER, error_text))
 
         if result != 'OK':
             self.debug_print("Logging in error, result: {0} data: {1}".format(result, data))
@@ -181,11 +422,11 @@ class ImapConnector(BaseConnector):
 
         # List imap data
         try:
-            (result, data) = self._imap_conn.list()
+            result, data = self._imap_conn.list()
         except Exception as e:
             error_code, error_msg = self._get_error_message_from_exception(e)
             error_text = IMAP_EXCEPTION_ERR_MESSAGE.format(error_code, error_msg)
-            return action_result.set_status(phantom.APP_ERROR, "{}. Details: {}".format(IMAP_ERR_LISTING_FOLDERS, error_text))
+            return action_result.set_status(phantom.APP_ERROR, IMAP_GENERAL_ERR_MESSAGE.format(IMAP_ERR_LISTING_FOLDERS, error_text))
 
         self.save_progress(IMAP_GOT_LIST_FOLDERS)
 
@@ -200,7 +441,7 @@ class ImapConnector(BaseConnector):
         except Exception as e:
             error_code, error_msg = self._get_error_message_from_exception(e)
             error_text = IMAP_EXCEPTION_ERR_MESSAGE.format(error_code, error_msg)
-            return action_result.set_status(phantom.APP_ERROR, "{}. Details: {}".format(IMAP_ERR_SELECTING_FOLDER.format(
+            return action_result.set_status(phantom.APP_ERROR, IMAP_GENERAL_ERR_MESSAGE.format(IMAP_ERR_SELECTING_FOLDER.format(
                     folder=self._handle_py_ver_compat_for_input_str(self._folder_name)), error_text))
 
         if result != 'OK':
@@ -282,7 +523,7 @@ class ImapConnector(BaseConnector):
 
         try:
             email_id = int(email_id)
-        except:
+        except Exception:
             return (action_result.set_status(phantom.APP_ERROR, "Container does not seem to be created from an IMAP email, \
                 email id not in proper format."), None, None, None)
 
@@ -378,10 +619,10 @@ class ImapConnector(BaseConnector):
 
     def _get_email_ids_to_process(self, max_emails, lower_id, manner):
 
-        range = "1:*"
+        email_range = "1:*"
 
         try:
-            (result, data) = self._imap_conn.uid('fetch', range, "(UID)")
+            (result, data) = self._imap_conn.uid('fetch', email_range, "(UID)")
         except Exception as e:
             error_code, error_msg = self._get_error_message_from_exception(e)
             error_text = IMAP_EXCEPTION_ERR_MESSAGE.format(error_code, error_msg)
@@ -452,7 +693,7 @@ class ImapConnector(BaseConnector):
         for header in headers:
             try:
                 ret_val[header[0]] = str(make_header(decode_header(header[1])))
-            except:
+            except Exception:
                 process_email = ProcessEmail()
                 ret_val[header[0]] = process_email._decode_uni_string(header[1], header[1])
 
@@ -509,7 +750,7 @@ class ImapConnector(BaseConnector):
             self._is_hex = True
             self._folder_name = folder
         elif email_id:
-            if (phantom.is_fail(self._connect_to_server(action_result, param))):
+            if (phantom.is_fail(self._connect_to_server_helper(action_result))):
                 return action_result.get_status()
 
             is_diff = False
@@ -532,7 +773,7 @@ class ImapConnector(BaseConnector):
                 folder = hashlib.md5(folder)
             else:
                 folder = hashlib.sha256(folder)
-        except:
+        except Exception:
             if not fips_enabled:
                 folder = hashlib.md5(folder.encode())
             else:
@@ -577,7 +818,7 @@ class ImapConnector(BaseConnector):
     def _poll_now(self, action_result, param):
 
         # Connect to the server
-        if (phantom.is_fail(self._connect_to_server(action_result, param))):
+        if (phantom.is_fail(self._connect_to_server_helper(action_result))):
             return action_result.get_status()
 
         # Get the maximum number of emails that we can pull
@@ -621,7 +862,7 @@ class ImapConnector(BaseConnector):
             return self._poll_now(action_result, param)
 
         # Connect to the server
-        if (phantom.is_fail(self._connect_to_server(action_result, param))):
+        if (phantom.is_fail(self._connect_to_server_helper(action_result))):
             return action_result.get_status()
 
         lower_id = self._state.get('next_muid', '1')
@@ -673,7 +914,7 @@ class ImapConnector(BaseConnector):
         action_result = self.add_action_result(ActionResult(dict(param)))
 
         # Connect to the server
-        if (phantom.is_fail(self._connect_to_server(action_result, param))):
+        if (phantom.is_fail(self._connect_to_server_helper(action_result))):
             action_result.append_to_message(self._handle_py_ver_compat_for_input_str(IMAP_ERR_CONNECTIVITY_TEST))
             return action_result.get_status()
 

@@ -5,13 +5,14 @@
     "type": "email",
     "publisher": "Splunk",
     "main_module": "imap_connector.py",
-    "app_version": "3.2.8",
+    "app_version": "3.3.0",
     "utctime_updated": "2022-01-19T19:15:12.000000Z",
     "package_name": "phantom_imap",
     "product_vendor": "Generic",
     "product_name": "IMAP",
     "product_version_regex": ".*",
     "min_phantom_version": "5.0.0",
+    "rest_handler": "request_handler.handle_request",
     "fips_compliant": true,
     "latest_tested_versions": [
         "On-premise Outlook Web Access v14.3.301.0, Mailbox server Microsoft Exchange v14.3.123.0"
@@ -19,7 +20,7 @@
     "python_version": "3",
     "logo": "logo_splunk.svg",
     "logo_dark": "logo_splunk_dark.svg",
-    "license": "Copyright (c) 2014-2021 Splunk Inc.",
+    "license": "Copyright (c) 2014-2022 Splunk Inc.",
     "configuration": {
         "server": {
             "data_type": "string",
@@ -27,31 +28,58 @@
             "order": 0,
             "required": true
         },
-        "ph": {
-            "data_type": "ph",
-            "order": 1
+        "auth_type": {
+            "data_type": "string",
+            "order": 1,
+            "description": "Authentication Mechanism to Use",
+            "value_list": [
+                "Basic",
+                "OAuth"
+            ],
+            "default": "Basic"
         },
         "username": {
             "data_type": "string",
             "description": "Username",
-            "order": 2
+            "order": 2,
+            "required": true
         },
         "password": {
             "data_type": "password",
             "description": "Password",
             "order": 3
         },
+        "client_id": {
+            "data_type": "string",
+            "description": "Client ID",
+            "order": 4
+        },
+        "client_secret": {
+            "data_type": "password",
+            "description": "Client Secret",
+            "order": 5
+        },
+        "auth_url": {
+            "data_type": "string",
+            "description": "Authorization URL",
+            "order": 6
+        },
+        "token_url": {
+            "data_type": "string",
+            "description": "Token URL",
+            "order": 7
+        },
         "folder": {
             "data_type": "string",
             "description": "Folder to ingest mails from (default is inbox)",
-            "order": 4,
+            "order": 8,
             "default": "inbox"
         },
         "ingest_manner": {
             "data_type": "string",
             "description": "How to ingest",
             "required": true,
-            "order": 5,
+            "order": 9,
             "value_list": [
                 "oldest first",
                 "latest first"
@@ -61,14 +89,14 @@
         },
         "first_run_max_emails": {
             "data_type": "numeric",
-            "order": 6,
+            "order": 10,
             "description": "Maximum emails to poll first time",
             "value": "2000",
             "required": true
         },
         "max_emails": {
             "data_type": "numeric",
-            "order": 7,
+            "order": 11,
             "description": "Maximum emails to poll",
             "value": "100",
             "required": true
@@ -76,43 +104,43 @@
         "use_ssl": {
             "data_type": "boolean",
             "description": "Use SSL",
-            "order": 8,
+            "order": 12,
             "default": false
         },
         "extract_attachments": {
             "data_type": "boolean",
             "description": "Extract Attachments",
-            "order": 9,
+            "order": 13,
             "default": true
         },
         "extract_urls": {
             "data_type": "boolean",
             "description": "Extract URLs",
-            "order": 10,
+            "order": 14,
             "default": true
         },
         "extract_ips": {
             "data_type": "boolean",
             "description": "Extract IPs",
-            "order": 11,
+            "order": 15,
             "default": true
         },
         "extract_domains": {
             "data_type": "boolean",
             "description": "Extract Domain Names",
-            "order": 12,
+            "order": 16,
             "default": true
         },
         "extract_hashes": {
             "data_type": "boolean",
             "description": "Extract Hashes",
-            "order": 13,
+            "order": 17,
             "default": true
         },
         "add_body_to_header_artifacts": {
             "data_type": "boolean",
             "description": "Add email body to the Email Artifact",
-            "order": 14,
+            "order": 18,
             "default": false
         }
     },
