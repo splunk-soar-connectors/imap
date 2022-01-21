@@ -32,10 +32,11 @@ def _get_dir_name_from_app_name(app_name):
     return app_name
 
 
-class Office365RequestHandler():
+class Office365RequestHandler:
     def __init__(self, request, path_parts):
         self._request = request
         self._path_parts = path_parts
+        self._rsh = None
 
     def _return_error(self, error_msg, status):
         state = self._rsh.load_state()
