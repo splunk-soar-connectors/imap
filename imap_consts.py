@@ -68,7 +68,7 @@ IMAP_ERR_MESSAGE = "Unknown error occurred. Please check the asset configuration
 TYPE_ERR_MESSAGE = "Error occurred while connecting to the IMAP server. Please check the asset configuration and|or the action parameters"
 IMAP_EXCEPTION_ERR_MESSAGE = "Error Code: {0}. Error Message: {1}"
 IMAP_REQUIRED_PARAM_OAUTH = "ERROR: {0} is a required parameter for OAuth Authentication, please specify one."
-IMAP_REQUIRED_PARAM_BASIC = "ERROR: {0} is a required parameter for OAuth Authentication, please specify one."
+IMAP_REQUIRED_PARAM_BASIC = "ERROR: {0} is a required parameter for Basic Authentication, please specify one."
 IMAP_GENERAL_ERR_MESSAGE = "{}. Details: {}"
 IMAP_ASSET_CORRUPTED = "ERROR: The state file for this asset might get corrupted. Please delete asset file located at " \
     "(/opt/phantom/local_data/app_states/9f2e9f72-b0e5-45d6-92a7-09ef820476c1/<asset_id>_state.json) and run the test connectivity again"

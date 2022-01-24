@@ -21,7 +21,7 @@ from django.http import HttpResponse
 
 
 def handle_request(request, path_parts):
-    return Office365RequestHandler(request, path_parts).handle_request()
+    return IMAPRequestHandler(request, path_parts).handle_request()
 
 
 def _get_dir_name_from_app_name(app_name):
@@ -32,7 +32,7 @@ def _get_dir_name_from_app_name(app_name):
     return app_name
 
 
-class Office365RequestHandler:
+class IMAPRequestHandler:
     def __init__(self, request, path_parts):
         self._request = request
         self._path_parts = path_parts

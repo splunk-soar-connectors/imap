@@ -251,6 +251,13 @@ The App will create the following type of artifacts:
     CEF key and the cs6Label key is set to "vault_id".
     [![](img/imap_vault_artifact.png)](img/imap_vault_artifact.png)
 
+## Port Information
+The app uses IMAP protocol for communicating with the email servers and HTTP/ HTTPS protocol for getting/refreshing the access_token. Below are the default ports used by Splunk SOAR.
+|         Service Name | Transport Protocol | Port |
+|----------------------|--------------------|------|
+|         http         | tcp                | 80   |
+|         https        | tcp                | 443  |
+For the IMAP connection, application will connect to the port 143 for standard IMAP4 connection and port 993 for IMAP4-over-SSL connection. Splunk SOAR doesn't use any of this ports.
 
 ### Configuration Variables
 The below configuration variables are required for this Connector to operate.  These variables are specified when configuring a IMAP asset in SOAR.

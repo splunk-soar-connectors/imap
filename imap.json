@@ -159,7 +159,7 @@
     "actions": [
         {
             "action": "test connectivity",
-            "description": "Validate the asset configuration for connectivity. This action runs a quick query on the server to check the connection and credentials.",
+            "description": "Validate the asset configuration for connectivity. This action runs a quick query on the server to check the connection and credentials",
             "type": "test",
             "identifier": "test_asset_connectivity",
             "read_only": true,
