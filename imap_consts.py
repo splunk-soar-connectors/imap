@@ -65,7 +65,6 @@ IMAP_FETCH_ID_FAILED_RESULT = "Fetch for uuid: {muuid} failed, result: {result},
 IMAP_VALIDATE_INTEGER_MESSAGE = "Please provide a valid integer value in the {key} parameter"
 IMAP_ERR_CODE_MESSAGE = "Error code unavailable"
 IMAP_ERR_MESSAGE = "Unknown error occurred. Please check the asset configuration and|or action parameters"
-TYPE_ERR_MESSAGE = "Error occurred while connecting to the IMAP server. Please check the asset configuration and|or the action parameters"
 IMAP_EXCEPTION_ERR_MESSAGE = "Error Code: {0}. Error Message: {1}"
 IMAP_REQUIRED_PARAM_OAUTH = "ERROR: {0} is a required parameter for OAuth Authentication, please specify one."
 IMAP_REQUIRED_PARAM_BASIC = "ERROR: {0} is a required parameter for Basic Authentication, please specify one."

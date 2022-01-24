@@ -258,7 +258,7 @@ The app uses IMAP protocol for communicating with the email servers and HTTP/ HT
 |         http         | tcp                | 80   |
 |         https        | tcp                | 443  |
 
-For the IMAP connection, application will connect to the port 143 for standard IMAP4 connection and port 993 for IMAP4-over-SSL connection. Splunk SOAR doesn't use any of this ports.
+For the IMAP connection, the application will connect to port 143 for the standard IMAP4 connection and port 993 for the IMAP4-over-SSL connection. Splunk SOAR doesn't use any of these ports.
 
 ### Configuration Variables
 The below configuration variables are required for this Connector to operate.  These variables are specified when configuring a IMAP asset in SOAR.
