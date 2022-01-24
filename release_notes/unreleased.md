@@ -1,2 +1,2 @@
 **Unreleased**
-* Changed the hashing algorithm to SHA256 when running in FIPS mode [PAPP-21526]
+* Added an OAuth authentication support for Gmail [PAPP-9184]
