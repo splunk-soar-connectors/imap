@@ -378,6 +378,7 @@ class ProcessEmail(object):
         added_artifacts = self._add_artifacts('fileHash', hashes, 'Hash Artifact', artifact_id, self._artifacts)
         artifact_id += added_artifacts
 
+        urls = [url for url in urls if bool(re.match(URI_REGEX, url))]
         added_artifacts = self._add_artifacts('requestURL', urls, 'URL Artifact', artifact_id, self._artifacts)
         artifact_id += added_artifacts
 

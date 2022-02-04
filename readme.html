@@ -80,7 +80,8 @@ Once, the asset is configured follow the below steps to generate the access_toke
     <b>NOTE:</b>
     <ul>
         <li> One of the configuration fields "Folder to ingest mails from (default is inbox)" can contain letters, digits, blank spaces as well as special characters in its value. Few values like Latin, Polish, etc characters and emojis are not considered valid for this field.</li>
-        <li> For the IMAP app, we won't be able to route traffic through the proxy. So if the user tries to add any proxy in variables of the asset, it won't affect the app's connectivity.</li>
+        <li> For the IMAP app, we won't be able to route traffic through the proxy. So if the user tries to add any proxy in variables of the asset, it won't affect the app's connectivity. But the configured proxy variables will be used while generating tokens for the <b>OAuth authentication</b>.</li>
+        <li> The parameter <b>Use SSL</b> will be ignored for the <b>OAuth authentication</b>, SSL mechanism will be used regardless of the parameter value.</li>
     </ul>
 </p>
 <br><br>
@@ -98,7 +99,7 @@ Notice that you now have a <b>Poll Now</b> button, as shown here:
         <img src="/app_resource/imap_9f2e9f72-b0e5-45d6-92a7-09ef820476c1/img/imap_test_poll.png"/>
     </a>
 <br><br>
-<p>One thing to note is that for every email that is ingested, a single container is created containing multiple artifacts.</p>
+<p>One thing to note is that for every email that is ingested, a single container is created containing multiple artifacts. The <b>Maximum artifacts</b> value will be ignored and all the possible artifacts will be ingested into the container.</p>
     <p>
     POLL NOW should be used to get a sense of the containers and artifacts that are created by the app. The POLL NOW window allows the user to set the "Maximum containers" that should be ingested at this instance. Since a single container is created for each email, this value equates to the maximum emails that are ingested by the App. The App will either get the oldest email first or the latest, depending upon the configuration parameter <i>How to ingest</i>.
     </p>
