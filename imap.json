@@ -11,11 +11,12 @@
     "product_vendor": "Generic",
     "product_name": "IMAP",
     "product_version_regex": ".*",
-    "min_phantom_version": "5.0.0",
+    "min_phantom_version": "5.1.0",
     "rest_handler": "request_handler.handle_request",
     "fips_compliant": true,
     "latest_tested_versions": [
-        "On-premise Outlook Web Access v14.3.301.0, Mailbox server Microsoft Exchange v14.3.123.0"
+        "On-premise Outlook Web Access v14.3.301.0, Mailbox server Microsoft Exchange v14.3.123.0",
+        "OAuth, Gmail February 4, 2022"
     ],
     "python_version": "3",
     "logo": "logo_splunk.svg",

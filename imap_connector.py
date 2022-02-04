@@ -305,12 +305,12 @@ class ImapConnector(BaseConnector):
             asset_id = self.get_asset_id()
             rsh = RequestStateHandler(asset_id)  # Use the states from the OAuth login
             ret_val, message = self._interactive_auth_initial(client_id, rsh, client_secret)
+            rsh.delete_state()
             if phantom.is_fail(ret_val):
                 return phantom.APP_ERROR, message
 
             self._state['client_id'] = client_id
             self.save_state(self._state)
-            rsh.delete_state()
 
             ret_val = self._connect_to_server(action_result)
             if phantom.is_fail(ret_val):
