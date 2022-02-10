@@ -157,9 +157,12 @@ class ImapConnector(BaseConnector):
         # Connect to the server
         try:
             if use_ssl:
-                self._imap_conn = imaplib.IMAP4_SSL(server, port=143)
+                # FAILED HERE currently
+                self.save_progress('paul: Creating _imap_conn with SSL')
+                self._imap_conn = imaplib.IMAP4_SSL(host=server, port=143)
             else:
-                self._imap_conn = imaplib.IMAP4(server, port=143)
+                self.save_progress('paul: Creating _imap_conn with NO SSL')
+                self._imap_conn = imaplib.IMAP4(host=server, port=143)
         except Exception as e:
             error_code, error_msg = self._get_error_message_from_exception(e)
             error_text = IMAP_EXCEPTION_ERR_MESSAGE.format(error_code, error_msg)
