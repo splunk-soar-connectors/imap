@@ -143,11 +143,13 @@ class ImapConnector(BaseConnector):
         return phantom.APP_SUCCESS
 
     def _connect_to_server(self, action_result, param):
-
+        self.save_progress('paul: _connect_to_server')
         config = self.get_config()
 
         use_ssl = config[IMAP_JSON_USE_SSL]
         server = config[phantom.APP_JSON_SERVER]
+        self.save_progress('paul: server: %s' % server)
+        self.save_progress('paul: use_ssl: %s' % use_ssl)
 
         # Set timeout to avoid stall
         socket.setdefaulttimeout(60)
@@ -155,19 +157,23 @@ class ImapConnector(BaseConnector):
         # Connect to the server
         try:
             if use_ssl:
-                self._imap_conn = imaplib.IMAP4_SSL(server)
+                self._imap_conn = imaplib.IMAP4_SSL(server, port=143)
             else:
-                self._imap_conn = imaplib.IMAP4(server)
+                self._imap_conn = imaplib.IMAP4(server, port=143)
         except Exception as e:
             error_code, error_msg = self._get_error_message_from_exception(e)
             error_text = IMAP_EXCEPTION_ERR_MESSAGE.format(error_code, error_msg)
-            return action_result.set_status(phantom.APP_ERROR, "{}. Details: {}".format(IMAP_ERR_CONNECTING_TO_SERVER, error_text))
+            return action_result.set_status(phantom.APP_ERROR, "paul1: {}. Details: {}".format(IMAP_ERR_CONNECTING_TO_SERVER, error_text))
 
-        self.save_progress(IMAP_CONNECTED_TO_SERVER)
+        self.save_progress('paul:' + IMAP_CONNECTED_TO_SERVER)
 
         # Login
         try:
+            self.save_progress('paul: Start logging in')
+
             (result, data) = self._imap_conn.login(config[phantom.APP_JSON_USERNAME], config[phantom.APP_JSON_PASSWORD])
+            self.save_progress('paul: Login result: %s' % result)
+
         except Exception as e:
             error_code, error_msg = self._get_error_message_from_exception(e)
             error_text = IMAP_EXCEPTION_ERR_MESSAGE.format(error_code, error_msg)
