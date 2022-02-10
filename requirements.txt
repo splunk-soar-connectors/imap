@@ -1,5 +1,6 @@
 beautifulsoup4==4.9.1
 Django==3.2.12
+IMAPClient==2.2.0
 parse==1.17.0
 python-dateutil==2.8.1
 python-magic==0.4.18

@@ -13,7 +13,6 @@
 # either express or implied. See the License for the specific language governing permissions
 # and limitations under the License.
 #
-import codecs
 import email
 import hashlib
 import imaplib
@@ -30,6 +29,7 @@ import phantom.app as phantom
 import requests
 from bs4 import UnicodeDammit
 from dateutil import tz
+from imapclient import imap_utf7
 from parse import parse
 from phantom.action_result import ActionResult
 from phantom.base_connector import BaseConnector
@@ -440,10 +440,7 @@ class ImapConnector(BaseConnector):
 
         self._folder_name = config.get(IMAP_JSON_FOLDER, 'inbox')
         try:
-            result, data = self._imap_conn.select('"{}"'.format(self._sanitize_folder_name(self._folder_name)), True)
-            if result != 'OK':
-                result, data = self._imap_conn.select(
-                    '"{}"'.format(codecs.encode(self._folder_name, "utf-7").replace(b"+", b"&").decode()), True)
+            result, data = self._imap_conn.select('"{}"'.format(imap_utf7.encode(self._folder_name).decode()), True)
         except Exception as e:
             error_code, error_msg = self._get_error_message_from_exception(e)
             error_text = IMAP_EXCEPTION_ERR_MESSAGE.format(error_code, error_msg)
@@ -535,10 +532,6 @@ class ImapConnector(BaseConnector):
 
         return phantom.APP_SUCCESS, email_data, email_id, folder_name
 
-    def _sanitize_folder_name(self, folder):
-        return codecs.encode(folder, "utf-7").replace(b"&", b"&-").replace(b"'", b"\'").replace(b"+-", b"+")\
-            .replace(b"+AH4", b"~").replace(b"+AFw", b"\\\\").decode()
-
     def _get_email_data(self, action_result, muuid, folder=None, is_diff=False):
 
         email_data = None
@@ -546,9 +539,7 @@ class ImapConnector(BaseConnector):
 
         if is_diff:
             try:
-                result, data = self._imap_conn.select('"{}"'.format(self._sanitize_folder_name(folder)), True)
-                if result != 'OK':
-                    result, data = self._imap_conn.select('"{}"'.format(codecs.encode(folder, "utf-7").replace(b"+", b"&").decode()), True)
+                result, data = self._imap_conn.select('"{}"'.format(imap_utf7.encode(folder).decode()), True)
             except Exception as e:
                 return action_result.set_status(phantom.APP_ERROR, IMAP_GENERAL_ERR_MESSAGE.format(
                     IMAP_ERR_SELECTING_FOLDER.format(folder=self._handle_py_ver_compat_for_input_str(folder)),
