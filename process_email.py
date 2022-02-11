@@ -241,12 +241,21 @@ class ProcessEmail(object):
             if uris:
                 uris = [self._clean_url(x) for x in uris]
 
+        validate_url = URLValidator(schemes=['http', 'https'])
+        validated_urls = list()
+        for url in uris:
+            try:
+                validate_url(url)
+                validated_urls.append(url)
+            except Exception:
+                pass
+
         if self._config[PROC_EMAIL_JSON_EXTRACT_URLS]:
             # add the uris to the urls
-            urls |= set(uris)
+            urls |= set(validated_urls)
 
         if self._config[PROC_EMAIL_JSON_EXTRACT_DOMAINS]:
-            for uri in uris:
+            for uri in validated_urls:
                 domain = phantom.get_host_from_url(uri)
                 if domain and (not self._is_ip(domain)):
                     domains.add(domain)
@@ -396,15 +405,7 @@ class ProcessEmail(object):
         added_artifacts = self._add_artifacts('fileHash', hashes, 'Hash Artifact', artifact_id, self._artifacts)
         artifact_id += added_artifacts
 
-        validate_url = URLValidator(schemes=['http', 'https'])
-        validated_urls = list()
-        for url in urls:
-            try:
-                validate_url(url)
-                validated_urls.append(url)
-            except Exception:
-                pass
-        added_artifacts = self._add_artifacts('requestURL', validated_urls, 'URL Artifact', artifact_id, self._artifacts)
+        added_artifacts = self._add_artifacts('requestURL', urls, 'URL Artifact', artifact_id, self._artifacts)
         artifact_id += added_artifacts
 
         # domains = [x.decode('idna') for x in domains]
