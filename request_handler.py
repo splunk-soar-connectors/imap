@@ -13,6 +13,7 @@
 # either express or implied. See the License for the specific language governing permissions
 # and limitations under the License.
 
+import base64
 import json
 import os
 
@@ -49,7 +50,7 @@ class IMAPRequestHandler:
 
         client_id = state['client_id']
         redirect_uri = state['redirect_url']
-        client_secret = state['client_secret']
+        client_secret = base64.b64decode(state['client_secret']).decode()
         proxy = state['proxy']
         token_url = state['token_url']
 

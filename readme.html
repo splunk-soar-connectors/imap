@@ -80,6 +80,7 @@ Once, the asset is configured follow the below steps to generate the access_toke
     <b>NOTE:</b>
     <ul>
         <li> For the IMAP app, we won't be able to route traffic through the proxy. So if the user tries to add any proxy in variables of the asset, it won't affect the app's connectivity. But the configured proxy variables will be used while generating tokens for the <b>OAuth authentication</b>.</li>
+        <li> As of now, the OAuth authentication is supported for only Gmail mailbox.</li>
         <li> The parameter <b>Use SSL</b> will be ignored for the <b>OAuth authentication</b>, SSL mechanism will be used regardless of the parameter value.</li>
     </ul>
 </p>
@@ -238,7 +239,7 @@ Notice that you now have a <b>Poll Now</b> button, as shown here:
 
     <h2>Port Information</h2>
     <p>
-        The app uses IMAP protocol for communicating with the email servers and HTTP/ HTTPS protocol for getting/refreshing the access_token. Below are the default ports used by Splunk SOAR.
+        The app uses IMAP protocol for communicating with the email servers and HTTP/ HTTPS protocol for obtaining/refreshing the access_token. Below are the default ports used by Splunk SOAR.
         <table>
             <tr class=plain>
                 <th>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Service Name</th>
@@ -256,5 +257,22 @@ Notice that you now have a <b>Poll Now</b> button, as shown here:
                 <td>443</td>
             </tr>
         </table>
-        For the IMAP connection, the application will connect to port 143 for the standard IMAP4 connection and port 993 for the IMAP4-over-SSL connection. Splunk SOAR doesn't use any of these ports.
+        Below are the ports used by IMAP library for the connection.
+        <table>
+            <tr class=plain>
+              <th>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Service Name</th>
+              <th>Transport Protocol</th>
+              <th>Port</th>
+            </tr>
+            <tr>
+              <td>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Standard IMAP4</td>
+              <td>tcp</td>
+              <td>143</td>
+            </tr>
+            <tr>
+              <td>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;IMAP4-over-SSL</td>
+              <td>tcp</td>
+              <td>993</td>
+            </tr>
+          </table>
     </p>

@@ -13,6 +13,7 @@
 # either express or implied. See the License for the specific language governing permissions
 # and limitations under the License.
 #
+import base64
 import email
 import hashlib
 import imaplib
@@ -117,7 +118,7 @@ class ImapConnector(BaseConnector):
 
         return parameter
 
-    def _make_rest_calls_to_phantom(self, action_result, url):
+    def make_rest_call(self, action_result, url):
 
         r = requests.get(url, verify=False)  # nosemgrep
         if not r:
@@ -135,7 +136,7 @@ class ImapConnector(BaseConnector):
 
     def _get_phantom_base_url_imap(self, action_result):
 
-        ret_val, resp_json = self._make_rest_calls_to_phantom(action_result, '{}rest/system_info'.format(self.get_phantom_base_url()))
+        ret_val, resp_json = self.make_rest_call(action_result, '{}rest/system_info'.format(self.get_phantom_base_url()))
 
         if phantom.is_fail(ret_val):
             return action_result.get_status(), None
@@ -151,7 +152,7 @@ class ImapConnector(BaseConnector):
 
     def _get_asset_name(self, action_result):
 
-        ret_val, resp_json = self._make_rest_calls_to_phantom(
+        ret_val, resp_json = self.make_rest_call(
             action_result, '{}rest/asset/{}'.format(self.get_phantom_base_url(), self.get_asset_id()))
 
         if phantom.is_fail(ret_val):
@@ -205,7 +206,7 @@ class ImapConnector(BaseConnector):
         state['redirect_url'] = app_rest_url
         state['request_url'] = request_url
         state['token_url'] = config.get("token_url")
-        state['client_secret'] = client_secret
+        state['client_secret'] = base64.b64encode(client_secret.encode()).decode()
 
         rsh.save_state(state)
         self.save_state(state)
@@ -321,6 +322,11 @@ class ImapConnector(BaseConnector):
     def initialize(self):
 
         self._state = self.load_state()
+        if not isinstance(self._state, dict):
+            self.debug_print("Resetting the state file with the default format")
+            self._state = {"app_version": self.get_app_json().get("app_version")}
+            return self.set_status(phantom.APP_ERROR, IMAP_STATE_FILE_CORRUPT_ERR)
+
         config = self.get_config()
         # Fetching the Python major version
         try:
