@@ -464,7 +464,7 @@ class ImapConnector(BaseConnector):
                 self._get_phantom_base_url().strip('/'), folder, email_id, self.get_asset_id())
 
         try:
-            r = requests.get(url, verify=False)
+            r = requests.get(url, verify=verify, timeout=DEFAULT_REQUEST_TIMEOUT)
             resp_json = r.json()
         except Exception as e:
             error_code, error_msg = self._get_error_message_from_exception(e)
@@ -713,6 +713,7 @@ if __name__ == '__main__':
     import argparse
 
     import pudb
+    import requests
 
     pudb.set_trace()
     in_json = None
@@ -723,9 +724,11 @@ if __name__ == '__main__':
     argparser.add_argument('input_test_json', help='Input Test JSON file')
     argparser.add_argument('-u', '--username', help='username', required=False)
     argparser.add_argument('-p', '--password', help='password', required=False)
+    argparser.add_argument('-v', '--verify', action='store_true', help='verify', required=False, default=False)
 
     args = argparser.parse_args()
     session_id = None
+    verify = args.verify
 
     username = args.username
     password = args.password
@@ -739,7 +742,7 @@ if __name__ == '__main__':
     if (username and password):
         try:
             print("Accessing the Login page")
-            r = requests.get(BaseConnector._get_phantom_base_url() + "login", verify=False)
+            r = requests.get(BaseConnector._get_phantom_base_url() + "login", verify=verify, timeout=DEFAULT_REQUEST_TIMEOUT)
             csrftoken = r.cookies['csrftoken']
 
             data = dict()
@@ -752,11 +755,12 @@ if __name__ == '__main__':
             headers['Referer'] = BaseConnector._get_phantom_base_url() + 'login'
 
             print("Logging into Platform to get the session id")
-            r2 = requests.post(BaseConnector._get_phantom_base_url() + "login", verify=False, data=data, headers=headers)
+            r2 = requests.post(BaseConnector._get_phantom_base_url() + "login", verify=verify, data=data, headers=headers,
+                               timeout=DEFAULT_REQUEST_TIMEOUT)
             session_id = r2.cookies['sessionid']
         except Exception as e:
             print("Unable to get session id from the platfrom. Error: " + str(e))
-            exit(1)
+            sys.exit(1)
 
     with open(args.input_test_json) as f:
 
@@ -777,7 +781,7 @@ if __name__ == '__main__':
                 in_json['user_session_token'] = session_id
             result = connector._handle_action(json.dumps(in_json), None)
             print(result)
-            exit(0)
+            sys.exit(0)
 
         if (data):
             raw_email = data.get('raw_email')
@@ -794,4 +798,4 @@ if __name__ == '__main__':
             process_email = ProcessEmail()
             ret_val, message = process_email.process_email(connector, raw_email, "manual_parsing", config, None)
 
-    exit(0)
+    sys.exit(0)
