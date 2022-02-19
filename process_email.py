@@ -1,32 +1,38 @@
 # File: process_email.py
-# Copyright (c) 2014-2021 Splunk Inc.
 #
-# SPLUNK CONFIDENTIAL - Use or disclosure of this material in whole or in part
-# without a valid written license from Splunk Inc. is PROHIBITED.
+# Copyright (c) 2014-2022 Splunk Inc.
 #
-# --
-
-from builtins import str
-from builtins import object
-import email
-import tempfile
-from collections import OrderedDict
-import os
-import re
-from bs4 import BeautifulSoup, UnicodeDammit
-import phantom.app as phantom
-import phantom.utils as ph_utils
-import phantom.rules as phantom_rules
-import mimetypes
-import socket
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software distributed under
+# the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND,
+# either express or implied. See the License for the specific language governing permissions
+# and limitations under the License.
 import base64
-from email.header import decode_header, make_header
-import shutil
+import email
 import hashlib
 import json
-import magic
-from requests.structures import CaseInsensitiveDict
+import mimetypes
+import os
+import re
+import shutil
+import socket
+import tempfile
+from builtins import object, str
+from collections import OrderedDict
 from copy import deepcopy
+from email.header import decode_header, make_header
+
+import magic
+import phantom.app as phantom
+import phantom.rules as phantom_rules
+import phantom.utils as ph_utils
+from bs4 import BeautifulSoup, UnicodeDammit
+from requests.structures import CaseInsensitiveDict
 
 _container_common = {
     "run_automation": False  # Don't run any playbooks, when this artifact is added
@@ -89,13 +95,20 @@ EMAIL_REGEX2 = r'".*"@[A-Z0-9.-]+\.[A-Z]{2,}\b'
 HASH_REGEX = r"\b[0-9a-fA-F]{32}\b|\b[0-9a-fA-F]{40}\b|\b[0-9a-fA-F]{64}\b"
 IP_REGEX = r'\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}'
 IPV6_REGEX = r'\s*((([0-9A-Fa-f]{1,4}:){7}([0-9A-Fa-f]{1,4}|:))|'
-IPV6_REGEX += r'(([0-9A-Fa-f]{1,4}:){6}(:[0-9A-Fa-f]{1,4}|((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3})|:))'
-IPV6_REGEX += r'|(([0-9A-Fa-f]{1,4}:){5}(((:[0-9A-Fa-f]{1,4}){1,2})|:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3})|:))|'
-IPV6_REGEX += r'(([0-9A-Fa-f]{1,4}:){4}(((:[0-9A-Fa-f]{1,4}){1,3})|((:[0-9A-Fa-f]{1,4})?:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:))|'
-IPV6_REGEX += r'(([0-9A-Fa-f]{1,4}:){3}(((:[0-9A-Fa-f]{1,4}){1,4})|((:[0-9A-Fa-f]{1,4}){0,2}:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:))|'
-IPV6_REGEX += r'(([0-9A-Fa-f]{1,4}:){2}(((:[0-9A-Fa-f]{1,4}){1,5})|((:[0-9A-Fa-f]{1,4}){0,3}:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:))|'
-IPV6_REGEX += r'(([0-9A-Fa-f]{1,4}:){1}(((:[0-9A-Fa-f]{1,4}){1,6})|((:[0-9A-Fa-f]{1,4}){0,4}:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:))|'
-IPV6_REGEX += r'(:(((:[0-9A-Fa-f]{1,4}){1,7})|((:[0-9A-Fa-f]{1,4}){0,5}:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:)))(%.+)?\s*'
+IPV6_REGEX += r'(([0-9A-Fa-f]{1,4}:){6}(:[0-9A-Fa-f]{1,4}'
+IPV6_REGEX += r'|((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3})|:))'
+IPV6_REGEX += r'|(([0-9A-Fa-f]{1,4}:){5}(((:[0-9A-Fa-f]{1,4}){1,2})'
+IPV6_REGEX += r'|:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3})|:))|'
+IPV6_REGEX += r'(([0-9A-Fa-f]{1,4}:){4}(((:[0-9A-Fa-f]{1,4}){1,3})'
+IPV6_REGEX += r'|((:[0-9A-Fa-f]{1,4})?:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:))|'
+IPV6_REGEX += r'(([0-9A-Fa-f]{1,4}:){3}(((:[0-9A-Fa-f]{1,4}){1,4})'
+IPV6_REGEX += r'|((:[0-9A-Fa-f]{1,4}){0,2}:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:))|'
+IPV6_REGEX += r'(([0-9A-Fa-f]{1,4}:){2}(((:[0-9A-Fa-f]{1,4}){1,5})'
+IPV6_REGEX += r'|((:[0-9A-Fa-f]{1,4}){0,3}:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:))|'
+IPV6_REGEX += r'(([0-9A-Fa-f]{1,4}:){1}(((:[0-9A-Fa-f]{1,4}){1,6})'
+IPV6_REGEX += r'|((:[0-9A-Fa-f]{1,4}){0,4}:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:))|'
+IPV6_REGEX += r'(:(((:[0-9A-Fa-f]{1,4}){1,7})|((:[0-9A-Fa-f]{1,4}){0,5}:((25[0-5]|2[0-4]\d|1\d\d'
+IPV6_REGEX += r'|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:)))(%.+)?\s*'
 
 
 uri_regexc = re.compile(URI_REGEX)
@@ -535,8 +548,10 @@ class ProcessEmail(object):
             try:
                 if "File name too long" in error_msg:
                     new_file_name = "ph_long_file_name_temp"
-                    file_path = "{}{}".format(self.remove_child_info(file_path).rstrip(file_name.replace('<', '').replace('>', '').replace(' ', '')), new_file_name)
-                    self._debug_print("Original filename: {}".format(self._base_connector._handle_py_ver_compat_for_input_str(file_name)))
+                    file_path = "{}{}".format(self.remove_child_info(file_path).rstrip(file_name.replace('<', '')
+                        .replace('>', '').replace(' ', '')), new_file_name)
+                    self._debug_print("Original filename: {}".format(
+                        self._base_connector._handle_py_ver_compat_for_input_str(file_name)))
                     self._debug_print("Modified filename: {}".format(new_file_name))
                     with open(file_path, 'wb') as long_file:
                         long_file.write(part_payload)
@@ -619,7 +634,8 @@ class ProcessEmail(object):
         headers_ci = CaseInsensitiveDict(headers)
 
         for curr_header_lower in self._headers_from_ews:
-            if (headers_ci.get('message-id', 'default_value1').strip() == curr_header_lower.get('message-id', 'default_value2').strip()):
+            if (headers_ci.get('message-id', 'default_value1').strip() == curr_header_lower.get(
+                    'message-id', 'default_value2').strip()):
                 # the headers match with the one that we got from the ews API, so update it
                 headers.update(curr_header_lower)
 
@@ -851,11 +867,21 @@ class ProcessEmail(object):
         # delete the header info, we dont make it a part of the container json
         del(container_data[PROC_EMAIL_JSON_EMAIL_HEADERS])
         container.update(_container_common)
+        fips_enabled = self._base_connector._get_fips_enabled()
+        # if fips is not enabled, we should continue with our existing md5 usage for generating hashes
+        # to not impact existing customers
         if not self._base_connector._is_hex:
             try:
-                folder_hex = hashlib.sha256(self._base_connector._folder_name)
+                if not fips_enabled:
+                    folder_hex = hashlib.md5(self._base_connector._folder_name)
+                else:
+                    folder_hex = hashlib.sha256(self._base_connector._folder_name)
             except:
-                folder_hex = hashlib.sha256(self._base_connector._folder_name.encode())
+                if not fips_enabled:
+                    folder_hex = hashlib.md5(self._base_connector._folder_name.encode())
+                else:
+                    folder_hex = hashlib.sha256(self._base_connector._folder_name.encode())
+
             folder_sdi = folder_hex.hexdigest()
         else:
             folder_sdi = self._base_connector._folder_name
@@ -922,11 +948,13 @@ class ProcessEmail(object):
             self._debug_print(message)
             return (phantom.APP_ERROR, message, [])
 
-        results = [{'container': self._container, 'artifacts': self._artifacts, 'files': self._attachments, 'temp_directory': tmp_dir}]
+        results = [{'container': self._container, 'artifacts': self._artifacts,
+            'files': self._attachments, 'temp_directory': tmp_dir}]
 
         return (ret_val, "Email Parsed", results)
 
-    def process_email(self, base_connector, rfc822_email, email_id, config, epoch, container_id=None, email_headers=None, attachments_data=None):
+    def process_email(self, base_connector, rfc822_email, email_id, config, epoch,
+            container_id=None, email_headers=None, attachments_data=None):
 
         self._base_connector = base_connector
         self._config = config
@@ -1163,7 +1191,8 @@ class ProcessEmail(object):
         file_name = self._decode_uni_string(file_name, file_name)
 
         try:
-            success, message, vault_id = phantom_rules.vault_add(file_location=local_file_path, container=container_id, file_name=file_name, metadata=vault_attach_dict)
+            success, message, vault_id = phantom_rules.vault_add(file_location=local_file_path, container=container_id,
+                file_name=file_name, metadata=vault_attach_dict)
         except Exception as e:
             self._base_connector.debug_print(phantom.APP_ERR_FILE_ADD_TO_VAULT.format(e))
             return (phantom.APP_ERROR, phantom.APP_ERROR)
@@ -1205,7 +1234,8 @@ class ProcessEmail(object):
             cef_artifact['parentSourceDataIdentifier'] = self._guid_to_hash[parent_guid]
 
         ret_val, status_string, artifact_id = self._base_connector.save_artifact(artifact)
-        self._base_connector.debug_print("save_artifact returns, value: {0}, reason: {1}, id: {2}".format(ret_val, status_string, artifact_id))
+        self._base_connector.debug_print("save_artifact returns, value: {0}, reason: {1}, id: {2}".format(ret_val,
+            status_string, artifact_id))
 
         return (phantom.APP_SUCCESS, ret_val)
 
@@ -1251,10 +1281,17 @@ class ProcessEmail(object):
             self._base_connector.debug_print('Handled exception in _create_dict_hash', e)
             return None
 
+        fips_enabled = self._base_connector._get_fips_enabled()
         try:
-            return hashlib.sha256(input_dict_str).hexdigest()
+            if not fips_enabled:
+                return hashlib.md5(input_dict_str).hexdigest()
+            else:
+                return hashlib.sha256(input_dict_str).hexdigest()
         except TypeError:  # py3
-            return hashlib.sha256(input_dict_str.encode('UTF-8')).hexdigest()
+            if not fips_enabled:
+                return hashlib.md5(input_dict_str.encode('UTF-8')).hexdigest()
+            else:
+                return hashlib.sha256(input_dict_str.encode('UTF-8')).hexdigest()
 
     def _del_tmp_dirs(self):
         """Remove any tmp_dirs that were created."""
