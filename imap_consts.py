@@ -1,6 +1,6 @@
 # File: imap_consts.py
 #
-# Copyright (c) 2014-2021 Splunk Inc.
+# Copyright (c) 2014-2022 Splunk Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -78,3 +78,4 @@ IMAP_CONTENT_TYPE_MESSAGE = "message/rfc822"
 IMAP_DEFAULT_ARTIFACT_COUNT = 100
 IMAP_DEFAULT_CONTAINER_COUNT = 100
 MAX_COUNT_VALUE = 4294967295
+DEFAULT_REQUEST_TIMEOUT = 30  # in seconds

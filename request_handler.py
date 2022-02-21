@@ -20,6 +20,8 @@ import os
 import requests
 from django.http import HttpResponse
 
+from imap_consts import *
+
 
 def handle_request(request, path_parts):
     return IMAPRequestHandler(request, path_parts).handle_request()
@@ -63,7 +65,7 @@ class IMAPRequestHandler:
         }
 
         try:
-            r = requests.post(token_url, data=body, proxies=proxy)  # nosemgrep
+            r = requests.post(token_url, data=body, proxies=proxy, timeout=DEFAULT_REQUEST_TIMEOUT)
             r.raise_for_status()
             resp_json = r.json()
         except Exception as e:

@@ -1,6 +1,6 @@
 # File: imap_connector.py
 #
-# Copyright (c) 2014-2021 Splunk Inc.
+# Copyright (c) 2014-2022 Splunk Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -118,9 +118,9 @@ class ImapConnector(BaseConnector):
 
         return parameter
 
-    def make_rest_call(self, action_result, url):
+    def make_rest_call(self, action_result, url, verify=False):
 
-        r = requests.get(url, verify=False)  # nosemgrep
+        r = requests.get(url, verify=verify, timeout=DEFAULT_REQUEST_TIMEOUT)
         if not r:
             message = 'Status Code: {0}'.format(r.status_code)
             if r.text:
@@ -270,7 +270,7 @@ class ImapConnector(BaseConnector):
             'client_secret': client_secret
         }
         try:
-            r = requests.post(request_url, data=body)  # nosemgrep: python.requests.best-practice.use-timeout.use-timeout
+            r = requests.post(request_url, data=body, timeout=DEFAULT_REQUEST_TIMEOUT)
         except Exception as e:
             return phantom.APP_ERROR, "Error refreshing token: {}".format(str(e))
 
@@ -701,13 +701,13 @@ class ImapConnector(BaseConnector):
 
         return ret_val
 
-    def _get_container_id(self, email_id, folder):
+    def _get_container_id(self, email_id, folder, verify=False):
 
         url = '{0}/rest/container?_filter_source_data_identifier="{1} : {2}"&_filter_asset={3}'.format(
                 self._get_phantom_base_url().strip('/'), folder, email_id, self.get_asset_id())
 
         try:
-            r = requests.get(url, verify=False)  # nosemgrep
+            r = requests.get(url, verify=verify, timeout=DEFAULT_REQUEST_TIMEOUT)
             resp_json = r.json()
         except Exception as e:
             error_code, error_msg = self._get_error_message_from_exception(e)
@@ -971,6 +971,7 @@ if __name__ == '__main__':
 
     args = argparser.parse_args()
     session_id = None
+    verify = args.verify
 
     username = args.username
     password = args.password
@@ -986,7 +987,7 @@ if __name__ == '__main__':
         try:
             print("Accessing the Login page")
             login_url = "{}login".format(BaseConnector._get_phantom_base_url())
-            r = requests.get(login_url, verify=verify)  # nosemgrep: python.requests.best-practice.use-timeout.use-timeout
+            r = requests.get(login_url, verify=verify, timeout=DEFAULT_REQUEST_TIMEOUT)
             csrftoken = r.cookies['csrftoken']
 
             data = dict()
@@ -999,11 +1000,10 @@ if __name__ == '__main__':
             headers['Referer'] = login_url
 
             print("Logging into Platform to get the session id")
-            r2 = requests.post(login_url, verify=verify,  # nosemgrep: python.requests.best-practice.use-timeout.use-timeout
-                               data=data, headers=headers)
+            r2 = requests.post(login_url, verify=verify, data=data, headers=headers, timeout=DEFAULT_REQUEST_TIMEOUT)
             session_id = r2.cookies['sessionid']
         except Exception as e:
-            print("Unable to get session id from the platform. Error: " + str(e))
+            print("Unable to get session id from the platfrom. Error: " + str(e))
             sys.exit(1)
 
     with open(args.input_test_json) as f:
