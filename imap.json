@@ -52,28 +52,28 @@
         },
         "client_id": {
             "data_type": "string",
-            "description": "Client ID",
+            "description": "OAuth Client ID",
             "order": 4
         },
         "client_secret": {
             "data_type": "password",
-            "description": "Client Secret",
+            "description": "OAuth Client Secret",
             "order": 5
         },
         "auth_url": {
             "data_type": "string",
-            "description": "Authorization URL",
+            "description": "OAuth Authorization URL",
             "order": 6,
             "default": "https://accounts.google.com/o/oauth2/auth"
         },
         "token_url": {
             "data_type": "string",
-            "description": "Token URL",
+            "description": "OAuth Token URL",
             "order": 7,
             "default": "https://oauth2.googleapis.com/token"
         },
         "scopes": {
-            "description": "API Scope (JSON formatted list)",
+            "description": "OAuth API Scope (JSON formatted list)",
             "data_type": "string",
             "default": "[\"https://mail.google.com/\"]",
             "order": 8
