@@ -919,10 +919,10 @@ class ImapConnector(BaseConnector):
         # Connect to the server
         if phantom.is_fail(self._connect_to_server_helper(action_result)):
             action_result.append_to_message(self._handle_py_ver_compat_for_input_str(IMAP_ERR_CONNECTIVITY_TEST))
+            self.debug_print(action_result.get_message())
             return action_result.get_status()
 
         self.save_progress(IMAP_SUCC_CONNECTIVITY_TEST)
-
         return action_result.set_status(phantom.APP_SUCCESS, IMAP_SUCC_CONNECTIVITY_TEST)
 
     def handle_action(self, param):
