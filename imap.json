@@ -5,21 +5,23 @@
     "type": "email",
     "publisher": "Splunk",
     "main_module": "imap_connector.py",
-    "app_version": "3.2.9",
-    "utctime_updated": "2022-01-21T23:11:27.000000Z",
+    "app_version": "3.3.0",
+    "utctime_updated": "2022-01-19T19:15:12.000000Z",
     "package_name": "phantom_imap",
     "product_vendor": "Generic",
     "product_name": "IMAP",
     "product_version_regex": ".*",
     "min_phantom_version": "5.1.0",
+    "rest_handler": "request_handler.handle_request",
     "fips_compliant": true,
     "latest_tested_versions": [
-        "On-premise Outlook Web Access v14.3.301.0, Mailbox server Microsoft Exchange v14.3.123.0"
+        "On-premise Outlook Web Access v14.3.301.0, Mailbox server Microsoft Exchange v14.3.123.0",
+        "OAuth, Gmail February 4, 2022"
     ],
     "python_version": "3",
     "logo": "logo_splunk.svg",
     "logo_dark": "logo_splunk_dark.svg",
-    "license": "Copyright (c) 2014-2022 Splunk Inc.",
+    "license": "Copyright (c) 2016-2022 Splunk Inc.",
     "configuration": {
         "server": {
             "data_type": "string",
@@ -27,31 +29,70 @@
             "order": 0,
             "required": true
         },
-        "ph": {
-            "data_type": "ph",
-            "order": 1
+        "auth_type": {
+            "data_type": "string",
+            "order": 1,
+            "description": "Authentication Mechanism to Use",
+            "value_list": [
+                "Basic",
+                "OAuth"
+            ],
+            "default": "Basic"
         },
         "username": {
             "data_type": "string",
             "description": "Username",
-            "order": 2
+            "order": 2,
+            "required": true
         },
         "password": {
             "data_type": "password",
             "description": "Password",
             "order": 3
         },
+        "client_id": {
+            "data_type": "string",
+            "description": "OAuth Client ID",
+            "order": 4
+        },
+        "client_secret": {
+            "data_type": "password",
+            "description": "OAuth Client Secret",
+            "order": 5
+        },
+        "auth_url": {
+            "data_type": "string",
+            "description": "OAuth Authorization URL",
+            "order": 6,
+            "default": "https://accounts.google.com/o/oauth2/auth"
+        },
+        "token_url": {
+            "data_type": "string",
+            "description": "OAuth Token URL",
+            "order": 7,
+            "default": "https://oauth2.googleapis.com/token"
+        },
+        "scopes": {
+            "description": "OAuth API Scope (JSON formatted list)",
+            "data_type": "string",
+            "default": "[\"https://mail.google.com/\"]",
+            "order": 8
+        },
+        "ph": {
+            "data_type": "ph",
+            "order": 9
+        },
         "folder": {
             "data_type": "string",
             "description": "Folder to ingest mails from (default is inbox)",
-            "order": 4,
+            "order": 10,
             "default": "inbox"
         },
         "ingest_manner": {
             "data_type": "string",
             "description": "How to ingest",
             "required": true,
-            "order": 5,
+            "order": 11,
             "value_list": [
                 "oldest first",
                 "latest first"
@@ -61,14 +102,14 @@
         },
         "first_run_max_emails": {
             "data_type": "numeric",
-            "order": 6,
+            "order": 12,
             "description": "Maximum emails to poll first time",
             "value": "2000",
             "required": true
         },
         "max_emails": {
             "data_type": "numeric",
-            "order": 7,
+            "order": 13,
             "description": "Maximum emails to poll",
             "value": "100",
             "required": true
@@ -76,43 +117,43 @@
         "use_ssl": {
             "data_type": "boolean",
             "description": "Use SSL",
-            "order": 8,
+            "order": 14,
             "default": false
         },
         "extract_attachments": {
             "data_type": "boolean",
             "description": "Extract Attachments",
-            "order": 9,
+            "order": 15,
             "default": true
         },
         "extract_urls": {
             "data_type": "boolean",
             "description": "Extract URLs",
-            "order": 10,
+            "order": 16,
             "default": true
         },
         "extract_ips": {
             "data_type": "boolean",
             "description": "Extract IPs",
-            "order": 11,
+            "order": 17,
             "default": true
         },
         "extract_domains": {
             "data_type": "boolean",
             "description": "Extract Domain Names",
-            "order": 12,
+            "order": 18,
             "default": true
         },
         "extract_hashes": {
             "data_type": "boolean",
             "description": "Extract Hashes",
-            "order": 13,
+            "order": 19,
             "default": true
         },
         "add_body_to_header_artifacts": {
             "data_type": "boolean",
             "description": "Add email body to the Email Artifact",
-            "order": 14,
+            "order": 20,
             "default": false
         }
     },
@@ -188,6 +229,13 @@
                     ]
                 },
                 {
+                    "data_path": "action_result.parameter.folder",
+                    "data_type": "string",
+                    "example_values": [
+                        "test"
+                    ]
+                },
+                {
                     "data_path": "action_result.parameter.id",
                     "data_type": "string",
                     "contains": [
@@ -206,52 +254,33 @@
                     ]
                 },
                 {
-                    "data_path": "action_result.parameter.folder",
-                    "data_type": "string",
-                    "example_values": [
-                        "test"
-                    ]
+                    "data_path": "action_result.data.*.ARC-Authentication-Results",
+                    "data_type": "string"
                 },
                 {
-                    "data_path": "action_result.data.*.X-Mozilla-Draft-Info",
-                    "data_type": "string",
-                    "example_values": [
-                        "internal/draft; vcard=0; receipt=0; DSN=0; uuencode=0;\r\n attachmentreminder=0"
-                    ]
+                    "data_path": "action_result.data.*.ARC-Message-Signature",
+                    "data_type": "string"
                 },
                 {
-                    "data_path": "action_result.data.*.X-Identity-Key",
-                    "data_type": "string",
-                    "example_values": [
-                        "id1"
-                    ]
-                },
-                {
-                    "data_path": "action_result.data.*.X-Account-Key",
-                    "data_type": "string",
-                    "example_values": [
-                        "account7"
-                    ]
-                },
-                {
-                    "data_path": "action_result.data.*.FCC",
-                    "data_type": "string",
-                    "example_values": [
-                        "test://user@19.2.4.2/Sent"
-                    ]
-                },
-                {
-                    "data_path": "action_result.data.*.CC",
-                    "data_type": "string",
-                    "example_values": [
-                        "User <test@xyz.com>"
-                    ]
+                    "data_path": "action_result.data.*.ARC-Seal",
+                    "data_type": "string"
                 },
                 {
                     "data_path": "action_result.data.*.Accept-Language",
                     "data_type": "string",
                     "example_values": [
                         "en-US"
+                    ]
+                },
+                {
+                    "data_path": "action_result.data.*.Authentication-Results",
+                    "data_type": "string"
+                },
+                {
+                    "data_path": "action_result.data.*.CC",
+                    "data_type": "string",
+                    "example_values": [
+                        "User <test@xyz.com>"
                     ]
                 },
                 {
@@ -270,15 +299,46 @@
                 },
                 {
                     "data_path": "action_result.data.*.Content-Type",
+                    "data_type": "string",
+                    "example_values": [
+                        "multipart/alternative; boundary=\"00000000000082bcbd056d5b9c37\""
+                    ]
+                },
+                {
+                    "data_path": "action_result.data.*.DKIM-Signature",
                     "data_type": "string"
                 },
                 {
                     "data_path": "action_result.data.*.Date",
+                    "data_type": "string",
+                    "example_values": [
+                        "Tue, 29 May 2018 17:31:58 +0000"
+                    ]
+                },
+                {
+                    "data_path": "action_result.data.*.Delivered-To",
+                    "data_type": "string",
+                    "example_values": [
+                        "test.user@hello.com"
+                    ]
+                },
+                {
+                    "data_path": "action_result.data.*.FCC",
+                    "data_type": "string",
+                    "example_values": [
+                        "test://user@19.2.4.2/Sent"
+                    ]
+                },
+                {
+                    "data_path": "action_result.data.*.Feedback-ID",
                     "data_type": "string"
                 },
                 {
                     "data_path": "action_result.data.*.From",
-                    "data_type": "string"
+                    "data_type": "string",
+                    "example_values": [
+                        "The Test Team <test-noreply@hello.test.com>"
+                    ]
                 },
                 {
                     "data_path": "action_result.data.*.In-Reply-To",
@@ -286,19 +346,36 @@
                 },
                 {
                     "data_path": "action_result.data.*.MIME-Version",
-                    "data_type": "string"
+                    "data_type": "string",
+                    "example_values": [
+                        "1.0"
+                    ]
                 },
                 {
                     "data_path": "action_result.data.*.Message-ID",
-                    "data_type": "string"
+                    "data_type": "string",
+                    "example_values": [
+                        "<88f9844d75d4b351.1527615118220.110312844.20155287.en.630c09e415f69497@test.com>"
+                    ]
                 },
                 {
                     "data_path": "action_result.data.*.Received",
                     "data_type": "string"
                 },
                 {
+                    "data_path": "action_result.data.*.Received-SPF",
+                    "data_type": "string"
+                },
+                {
                     "data_path": "action_result.data.*.References",
                     "data_type": "string"
+                },
+                {
+                    "data_path": "action_result.data.*.Reply-To",
+                    "data_type": "string",
+                    "example_values": [
+                        "The Test Team <test-noreply@hello.test.com>"
+                    ]
                 },
                 {
                     "data_path": "action_result.data.*.Return-Path",
@@ -309,7 +386,10 @@
                 },
                 {
                     "data_path": "action_result.data.*.Subject",
-                    "data_type": "string"
+                    "data_type": "string",
+                    "example_values": [
+                        "Test Email Subject"
+                    ]
                 },
                 {
                     "data_path": "action_result.data.*.Thread-Index",
@@ -327,11 +407,47 @@
                 },
                 {
                     "data_path": "action_result.data.*.To",
-                    "data_type": "string"
+                    "data_type": "string",
+                    "example_values": [
+                        "test.user@hello.com"
+                    ]
                 },
                 {
                     "data_path": "action_result.data.*.User-Agent",
                     "data_type": "string"
+                },
+                {
+                    "data_path": "action_result.data.*.X-Account-Key",
+                    "data_type": "string",
+                    "example_values": [
+                        "account7"
+                    ]
+                },
+                {
+                    "data_path": "action_result.data.*.X-Gm-Message-State",
+                    "data_type": "string"
+                },
+                {
+                    "data_path": "action_result.data.*.X-Google-DKIM-Signature",
+                    "data_type": "string"
+                },
+                {
+                    "data_path": "action_result.data.*.X-Google-Id",
+                    "data_type": "string",
+                    "example_values": [
+                        "194824"
+                    ]
+                },
+                {
+                    "data_path": "action_result.data.*.X-Google-Smtp-Source",
+                    "data_type": "string"
+                },
+                {
+                    "data_path": "action_result.data.*.X-Identity-Key",
+                    "data_type": "string",
+                    "example_values": [
+                        "id1"
+                    ]
                 },
                 {
                     "data_path": "action_result.data.*.X-MS-Exchange-Organization-AuthAs",
@@ -367,6 +483,14 @@
                 },
                 {
                     "data_path": "action_result.data.*.X-MS-TNEF-Correlator",
+                    "data_type": "string"
+                },
+                {
+                    "data_path": "action_result.data.*.X-Mozilla-Draft-Info",
+                    "data_type": "string"
+                },
+                {
+                    "data_path": "action_result.data.*.X-Received",
                     "data_type": "string"
                 },
                 {
@@ -442,48 +566,140 @@
     "pip_dependencies": {
         "wheel": [
             {
+                "module": "Django",
+                "input_file": "wheels/py3/Django-3.2.12-py3-none-any.whl"
+            },
+            {
+                "module": "IMAPClient",
+                "input_file": "wheels/shared/IMAPClient-2.2.0-py2.py3-none-any.whl"
+            },
+            {
+                "module": "asgiref",
+                "input_file": "wheels/py3/asgiref-3.4.1-py3-none-any.whl"
+            },
+            {
                 "module": "beautifulsoup4",
-                "input_file": "wheels/beautifulsoup4-4.9.1-py3-none-any.whl"
+                "input_file": "wheels/py3/beautifulsoup4-4.9.1-py3-none-any.whl"
             },
             {
                 "module": "certifi",
-                "input_file": "wheels/certifi-2021.10.8-py2.py3-none-any.whl"
+                "input_file": "wheels/shared/certifi-2021.10.8-py2.py3-none-any.whl"
             },
             {
                 "module": "chardet",
-                "input_file": "wheels/chardet-3.0.4-py2.py3-none-any.whl"
+                "input_file": "wheels/shared/chardet-3.0.4-py2.py3-none-any.whl"
             },
             {
                 "module": "idna",
-                "input_file": "wheels/idna-2.10-py2.py3-none-any.whl"
+                "input_file": "wheels/shared/idna-2.10-py2.py3-none-any.whl"
             },
             {
                 "module": "parse",
-                "input_file": "wheels/parse-1.17.0-py3-none-any.whl"
+                "input_file": "wheels/py3/parse-1.17.0-py3-none-any.whl"
             },
             {
                 "module": "python_dateutil",
-                "input_file": "wheels/python_dateutil-2.8.1-py2.py3-none-any.whl"
+                "input_file": "wheels/shared/python_dateutil-2.8.1-py2.py3-none-any.whl"
             },
             {
                 "module": "python_magic",
-                "input_file": "wheels/python_magic-0.4.18-py2.py3-none-any.whl"
+                "input_file": "wheels/shared/python_magic-0.4.18-py2.py3-none-any.whl"
+            },
+            {
+                "module": "pytz",
+                "input_file": "wheels/shared/pytz-2021.3-py2.py3-none-any.whl"
             },
             {
                 "module": "requests",
-                "input_file": "wheels/requests-2.25.0-py2.py3-none-any.whl"
+                "input_file": "wheels/shared/requests-2.25.0-py2.py3-none-any.whl"
             },
             {
                 "module": "six",
-                "input_file": "wheels/six-1.16.0-py2.py3-none-any.whl"
+                "input_file": "wheels/shared/six-1.16.0-py2.py3-none-any.whl"
             },
             {
                 "module": "soupsieve",
-                "input_file": "wheels/soupsieve-2.3.1-py3-none-any.whl"
+                "input_file": "wheels/py3/soupsieve-2.3.1-py3-none-any.whl"
+            },
+            {
+                "module": "sqlparse",
+                "input_file": "wheels/py3/sqlparse-0.4.2-py3-none-any.whl"
+            },
+            {
+                "module": "typing_extensions",
+                "input_file": "wheels/py3/typing_extensions-4.1.1-py3-none-any.whl"
             },
             {
                 "module": "urllib3",
-                "input_file": "wheels/urllib3-1.26.7-py2.py3-none-any.whl"
+                "input_file": "wheels/shared/urllib3-1.26.8-py2.py3-none-any.whl"
+            }
+        ]
+    },
+    "pip39_dependencies": {
+        "wheel": [
+            {
+                "module": "Django",
+                "input_file": "wheels/py3/Django-3.2.12-py3-none-any.whl"
+            },
+            {
+                "module": "IMAPClient",
+                "input_file": "wheels/shared/IMAPClient-2.2.0-py2.py3-none-any.whl"
+            },
+            {
+                "module": "asgiref",
+                "input_file": "wheels/py3/asgiref-3.5.0-py3-none-any.whl"
+            },
+            {
+                "module": "beautifulsoup4",
+                "input_file": "wheels/py3/beautifulsoup4-4.9.1-py3-none-any.whl"
+            },
+            {
+                "module": "certifi",
+                "input_file": "wheels/shared/certifi-2021.10.8-py2.py3-none-any.whl"
+            },
+            {
+                "module": "chardet",
+                "input_file": "wheels/shared/chardet-3.0.4-py2.py3-none-any.whl"
+            },
+            {
+                "module": "idna",
+                "input_file": "wheels/shared/idna-2.10-py2.py3-none-any.whl"
+            },
+            {
+                "module": "parse",
+                "input_file": "wheels/py3/parse-1.17.0-py3-none-any.whl"
+            },
+            {
+                "module": "python_dateutil",
+                "input_file": "wheels/shared/python_dateutil-2.8.1-py2.py3-none-any.whl"
+            },
+            {
+                "module": "python_magic",
+                "input_file": "wheels/shared/python_magic-0.4.18-py2.py3-none-any.whl"
+            },
+            {
+                "module": "pytz",
+                "input_file": "wheels/shared/pytz-2021.3-py2.py3-none-any.whl"
+            },
+            {
+                "module": "requests",
+                "input_file": "wheels/shared/requests-2.25.0-py2.py3-none-any.whl"
+            },
+            {
+                "module": "six",
+                "input_file": "wheels/shared/six-1.16.0-py2.py3-none-any.whl"
+            },
+            {
+                "module": "soupsieve",
+                "input_file": "wheels/py3/soupsieve-2.3.1-py3-none-any.whl"
+            },
+            {
+                "module": "sqlparse",
+                "input_file": "wheels/py3/sqlparse-0.4.2-py3-none-any.whl"
+            },
+            {
+                "module": "urllib3",
+                "input_file": "wheels/shared/urllib3-1.26.8-py2.py3-none-any.whl"
             }
         ]
     }

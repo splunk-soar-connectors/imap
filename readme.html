@@ -14,50 +14,92 @@ and limitations under the License.
 -->
 <h1>IMAP</h1>
     <p>
-        It is not uncommon for enterprises to have a single mailbox configured where users can forward suspicious emails for further investigation. The ingestion feature in the IMAP app is primarily designed to pull emails from such a mailbox and create containers and artifacts in Phantom. 
+        It is not uncommon for enterprises to have a single mailbox configured where users can forward suspicious emails for further investigation. The ingestion feature in the IMAP app is primarily designed to pull emails from such a mailbox and create containers and artifacts in Phantom.
     </p>
 <p>To add an IMAP Asset in Phantom, from the <b>Main Menu</b>, select <b>Apps</b>. In the <b>Search Apps</b> field, search for the <b>IMAP</b> App by typing "IMAP" into the search field and hitting enter. To the right of the App name, click on the <b>Configure New Asset</b> button.</p>
-    <a href="/app_resource/imap_9f2e9f72-b0e5-45d6-92a7-09ef820476c1/img/imap_asset.png">  
+    <a href="/app_resource/imap_9f2e9f72-b0e5-45d6-92a7-09ef820476c1/img/imap_asset.png" target="_blank">
         <img src="/app_resource/imap_9f2e9f72-b0e5-45d6-92a7-09ef820476c1/img/imap_asset.png"/>
     </a>
 <br><br>
 <p>
-In the <b>Asset Info</b> tab, the <b>Asset Name</b> and <b>Asset Description</b> can be whatever you want, we've chosen "imap_ingest" for this example. The <b>Product Vendor</b> and <b>Product Name</b> fields will be populated by Phantom and are not user-configurable. Do not click <b>Save</b> yet, navigate to the next tab, <b>Asset Settings</b>. 
+In the <b>Asset Info</b> tab, the <b>Asset Name</b> and <b>Asset Description</b> can be whatever you want, we've chosen "imap_ingest" for this example. The <b>Product Vendor</b> and <b>Product Name</b> fields will be populated by Phantom and are not user-configurable. Do not click <b>Save</b> yet, navigate to the <b>Ingest Settings</b> tab.
 </p>
-    <a href="/app_resource/imap_9f2e9f72-b0e5-45d6-92a7-09ef820476c1/img/imap_asset_settings.png">
-        <img src="/app_resource/imap_9f2e9f72-b0e5-45d6-92a7-09ef820476c1/img/imap_asset_settings.png"/>
-    </a>
+<a href="/app_resource/imap_9f2e9f72-b0e5-45d6-92a7-09ef820476c1/img/imap_asset_ingest.png" target="_blank">
+    <img src="/app_resource/imap_9f2e9f72-b0e5-45d6-92a7-09ef820476c1/img/imap_asset_ingest.png"/>
+</a>
 <br><br>
 <p>
-The <b>Asset Settings</b> tab provides the configuration information Phantom uses to communicate with the mail server. Fill in the <b>Server IP/Hostname</b>, <b>Username</b>, and <b>Password</b>. The remaining configuration fields can be adjusted to suit the email environment. Do not click <b>Save</b> yet, navigate to the next tab, <b>Ingest Settings</b>.
-</p>
+The <b>Ingest Settings</b> tab sets the container type the ingested IMAP data will be placed. Select the appropriate label name or create a new label. In this example, the label name <b>imap</b> has been selected. Choose "Off" for Manual polling from the dropdown of <b>Select a polling interval or schedule to configure polling on this asset</b> or select "Scheduled" or "Interval". Set the <b>Polling Interval</b> to the desired number of minutes. The settings in the <b>Approval Settings</b> and <b>Access Control</b> tab are not used for the communication between Phantom and IMAP and can be configured later. Navigate to the <b>Asset Settings</b> tab if you are not already there.
+<br><br>
+<a href="/app_resource/imap_9f2e9f72-b0e5-45d6-92a7-09ef820476c1/img/imap_asset_settings.png" target="_blank">
+    <img src="/app_resource/imap_9f2e9f72-b0e5-45d6-92a7-09ef820476c1/img/imap_asset_settings.png"/>
+</a>
+<br><br>
+<p>
+The <b>Asset Settings</b> tab provides the configuration information Phantom uses to communicate with the mail server. Currently, there are two ways to authenticate. <ul><li>Basic</li><li>OAuth</li></ul>
+<h2>Basic Authentication</h2>
+Fill in the <b>Server IP/Hostname</b>, <b>Username</b>, and <b>Password</b>. The remaining configuration fields can be adjusted to suit the email environment.
+<a href="/app_resource/imap_9f2e9f72-b0e5-45d6-92a7-09ef820476c1/img/imap_test_connectivity.png" target="_blank">
+    <img src="/app_resource/imap_9f2e9f72-b0e5-45d6-92a7-09ef820476c1/img/imap_test_connectivity.png"/>
+</a>
+<h2>OAuth Authentication</h2>
+Follow the steps outlined below to set up the OAuth application:
+<ul>
+    <li>Open the <a href="https://console.developers.google.com/apis/credentials" target="_blank">Google API Console Credentials page</a>.</li>
+    <li>Click <b>Select a project</b>, then <b>NEW PROJECT</b>, and enter a name for the project, and optionally, edit the provided project ID. Click <b>Create</b>.
+    <a href="/app_resource/imap_9f2e9f72-b0e5-45d6-92a7-09ef820476c1/img/imap_oauth_select_project.png" target="_blank">
+        <img src="/app_resource/imap_9f2e9f72-b0e5-45d6-92a7-09ef820476c1/img/imap_oauth_select_project.png"/>
+    </a>
+    </li>
+    <li>Select the created project from the top left corner, if not already selected.</li>
+    <li>On the <b>Credentials</b> page, select <b>Create credentials</b>, then <b>OAuth client ID</b>.</li>
+    <li>You may be prompted to set a product name on the Consent screen. If so, click <b>Configure consent screen</b>, supply the requested information, and click <b>Save</b> to return to the Credentials screen.</li>
+    <li>Select <b>Web Application</b> for the <b>Application Type</b>. The <b>Redirect URLs</b> should be filled here. We will get <b>Redirect URLs</b> from the Phantom asset we create below in the section titled "Phantom asset for IMAP". You can keep it blank for now and Edit/Add it later.</li>
+    <li>Click <b>Create</b>.</li>
+    <li>On the page that appears, Note down the <b>client ID</b> and <b>client secret</b> somewhere secure, as you will need them while configuring the Phantom asset.</li>
+</ul>
+<h3>Phantom Asset for IMAP</h3>
+When creating an asset for the <b>IMAP</b> app, place the <b>client ID</b> and <b>client secret</b> in their corresponding fields. Then, after filling in other values, click <b>SAVE</b>. Note that the password field is optional for OAuth authentication. Keep the default values for the <b>OAuth Authorization URL</b>, <b>OAuth Token URL</b> and <b>OAuth API Scope</b> parameters.
+<br><br>
+After saving, a new field will appear in the <b>Asset Settings</b> tab. Take the URL found in the <b>POST incoming for IMAP to this location</b> field and place it in the <b>Redirect URIs</b> field mentioned above. You can edit the client listed under <b>OAuth 2.0 Client IDs</b> on the <b>Credentials</b> page to add a redirect url. After doing so, the URL should look something like this:
+<br><br>
+https://&lt;phantom_host&gt;/rest/handler/imap_9f2e9f72-b0e5-45d6-92a7-09ef820476c1/&lt;asset_name&gt;
+<br><br>
+Additionally, updating the Base URL in the Phantom Company Settings is also required. Navigate to <b>Administration > Company Settings > Info</b> to configure the Base URL For Phantom Appliance. Then, select <b>Save Changes</b>.
+<br><br>
+Once, the asset is configured follow the below steps to generate the access_token and refresh_token pair.
+<ul>
+    <li>Hit the <b>TEST CONNECTIVITY</b> button under <b>Asset Settings</b></li>
+    <li>You will be asked to open a link in a new tab. Open the link in the same browser so that you are logged into Splunk Phantom for the redirect. If you wish to use a different browser, log in to the Splunk Phantom first, and then open the provided link.</li>
+    <li>Proceed to login to the Google site</li>
+    <li>You will be prompted to agree to the permissions requested by the App</li>
+    <li>If all goes well the browser should instruct you to close the tab</li>
+    <li>Now go back and check the message on the Test Connectivity dialog box, it should say Connectivity test passed</li>
+</ul>
 <p>
     <b>NOTE:</b>
     <ul>
-        <li> One of the configuration fields "Folder to ingest mails from (default is inbox)" can contain letters, digits, blank spaces as well as special characters in its value. Few values like Latin, Polish, etc characters and emojis are not considered valid for this field.</li>
-        <li> For the IMAP app, we won't be able to route traffic through the proxy. So if the user tries to add any proxy in variables of the asset, it won't affect the app's connectivity.</li>
+        <li> For the IMAP app, we won't be able to route traffic through the proxy. So if the user tries to add any proxy in variables of the asset, it won't affect the app's connectivity. But the configured proxy variables will be used while generating tokens for the <b>OAuth authentication</b>.</li>
+        <li> As of now, the OAuth authentication is supported for only Gmail mailbox.</li>
+        <li> The parameter <b>Use SSL</b> will be ignored for the <b>OAuth authentication</b>, SSL mechanism will be used regardless of the parameter value.</li>
     </ul>
 </p>
-    <a href="/app_resource/imap_9f2e9f72-b0e5-45d6-92a7-09ef820476c1/img/imap_asset_ingest.png">
-        <img src="/app_resource/imap_9f2e9f72-b0e5-45d6-92a7-09ef820476c1/img/imap_asset_ingest.png"/>
-    </a>
 <br><br>
 <p>
-The <b>Ingest Settings</b> tab sets the container type the ingested IMAP data will be placed. Select the appropriate label name or create a new label. In this example, the label name <b>imap</b> has been selected. Choose "Off" for Manual polling from the dropdown of <b>Select a polling interval or schedule to configure polling on this asset</b> or select "Scheduled" or "Interval". Set the <b>Polling Interval</b> to the desired number of minutes. NOW you can click <b>Save</b>. The settings in the <b>Approval Settings</b> tab are not used for the communication between Phantom and IMAP and can be configured later.  You will see the saved Asset. Return to the <b>Ingest Settings</b> tab if you are not already there. Notice that you now have a <b>Poll Now</b> button, as shown here:    
+    Now that the config is out of the way, let's delve into the two modes, in which ingestion can occur and the differences between them.
 </p>
-    <a href="/app_resource/imap_9f2e9f72-b0e5-45d6-92a7-09ef820476c1/img/imap_poll_now.png">
+<h2>POLL NOW</h2>
+Notice that you now have a <b>Poll Now</b> button, as shown here:
+    <a href="/app_resource/imap_9f2e9f72-b0e5-45d6-92a7-09ef820476c1/img/imap_poll_now.png" target="_blank">
         <img src="/app_resource/imap_9f2e9f72-b0e5-45d6-92a7-09ef820476c1/img/imap_poll_now.png"/>
-    </a> 
+    </a>
 <br><br>
 <p>Click <b>Poll Now</b>. There are a few options you can set, In this example the <b>Maximum containers</b> to 40 and <b>Maximum artifacts</b> to 10, the default values are also fine. Click the <b>Poll Now</b> button at the bottom of the dialog. You will see some text begin to scroll by inside the text field, indicating progress. Parsing data might take a while. The dialog should look like this.</p>
-    <a href="/app_resource/imap_9f2e9f72-b0e5-45d6-92a7-09ef820476c1/img/imap_test_poll.png">
+    <a href="/app_resource/imap_9f2e9f72-b0e5-45d6-92a7-09ef820476c1/img/imap_test_poll.png" target="_blank">
         <img src="/app_resource/imap_9f2e9f72-b0e5-45d6-92a7-09ef820476c1/img/imap_test_poll.png"/>
-    </a> 
-<br><br>
-    <p>
-    Now that the config is out of the way, let's delve into the two modes that ingestion can occur and the differences between them. One thing to note is that for every email that is ingested, a single container is created containing multiple artifacts.
     </a>
-<h2>POLL NOW</h2>
+<br><br>
+<p>One thing to note is that for every email that is ingested, a single container is created containing multiple artifacts. The <b>Maximum artifacts</b> value will be ignored and all the possible artifacts will be ingested into the container.</p>
     <p>
     POLL NOW should be used to get a sense of the containers and artifacts that are created by the app. The POLL NOW window allows the user to set the "Maximum containers" that should be ingested at this instance. Since a single container is created for each email, this value equates to the maximum emails that are ingested by the App. The App will either get the oldest email first or the latest, depending upon the configuration parameter <i>How to ingest</i>.
     </p>
@@ -66,40 +108,39 @@ The <b>Ingest Settings</b> tab sets the container type the ingested IMAP data wi
        This mode is used to schedule a polling action on the asset at regular intervals, which is configured via the Ingest tab of the asset. It makes use of the following asset configuration parameters (among others):
 
     <ul>
-    <li>Maximum emails to poll the first time</li>
-        The App detects the first time it is polling an asset and will ingest these number of emails (at the most).
-    <li>Maximum emails to poll</li>
-        For all scheduled polls after the first, the app will ingest these numbers of emails.
-    <li>How to ingest</li>
-        Should the app be ingesting the latest emails or the oldest?
+        <li>Maximum emails to poll the first time</li>
+            The App detects the first time it is polling an asset and will ingest these number of emails (at the most).
+        <li>Maximum emails to poll</li>
+            For all scheduled polls after the first, the app will ingest these numbers of emails.
+        <li>How to ingest</li>
+            Should the app be ingesting the latest emails or the oldest?
     </ul>
     <p>In the case of Scheduled Polling, on every poll, the App remembers the last email that it has ingested and will pick up from the next one in the next scheduled poll.</p>
     <h3>How to ingest</h3>
     <p>The app allows the user to configure how it should ingest emails on every scheduled poll, <i>oldest first</i>, or <i>latest first</i>. Depending upon the scheduled interval and how busy the inbox is one of the following could potentially happen</p>
     <ul>
-    <li>oldest first</li>
-        If the app is configured to poll too slowly and the inbox is so busy that on every poll the maximum ingested emails is less than the number of new emails, the app will never catch up.
-    <li>latest first</li>
-        If the app is configured to poll too slowly and the inbox is so busy that on every poll the maximum ingested emails is less than the number of new emails, the app will drop the older emails since it is ingesting the latest emails that came into the mailbox.
+        <li>oldest first</li>
+            If the app is configured to poll too slowly and the inbox is so busy that on every poll the maximum ingested emails is less than the number of new emails, the app will never catch up.
+        <li>latest first</li>
+            If the app is configured to poll too slowly and the inbox is so busy that on every poll the maximum ingested emails is less than the number of new emails, the app will drop the older emails since it is ingesting the latest emails that came into the mailbox.
     </ul>
     For best results, keep the poll interval and <i>Maximum emails to poll</i> values close to the number of emails you would get within a time interval. This way, every poll will end up ingesting all the new emails.
-    </p>
 <h2>Containers created</h2>
     <p>
        As mentioned before, the app will create a single container for each email that it ingests with the following properties:
       <ul>
       <li>Name</li>
-      The email subject is used as the name of the container. If a subject is not present the generated name is of the format:</br> 
-      "Email UID: the_numeric_email_id"
+      The email subject is used as the name of the container. If a subject is not present the generated name is of the format: "Email UID: the_numeric_email_id"
       <li>Source ID</li>
           The source ID of the container will be set to the "{hash_value_of_foldername} : {email_id}".
       </ul>
-      The <d>data</b> section of the container will contain the complete raw email in a key named 'raw_email'. The UI allows the user to download this raw data JSON into a file. This same data can be extracted in a playbook also for further processing.
+      The <b>data</b> section of the container will contain the complete raw email in a key named 'raw_email'. The UI allows the user to download this raw data JSON into a file. This same data can be extracted in a playbook also for further processing.
+    </p>
 <h2>Playbook Backward Compatibility</h2>
     <p>
         <ul>
-        <li>The existing container's source_data_identifier has been modified. Hence, it is requested to the end-user to please update their existing playbooks by re-inserting | modifying | deleting the corresponding action blocks or by providing appropriate values to the action parameters in case source_data_identifier is used, to ensure the correct functioning of the playbooks created on the earlier versions of the app.</li>
-        <li>The format of container source_data_identifier has been changed from "{email_id}" to "{hash_value_of_foldername} : {email_id}" which helps to create containers correctly while fetching data from the IMAP server. </li>
+            <li>The existing container's source_data_identifier has been modified. Hence, it is requested to the end-user to please update their existing playbooks by re-inserting | modifying | deleting the corresponding action blocks or by providing appropriate values to the action parameters in case source_data_identifier is used, to ensure the correct functioning of the playbooks created on the earlier versions of the app.</li>
+            <li>The format of container source_data_identifier has been changed from "{email_id}" to "{hash_value_of_foldername} : {email_id}" which helps to create containers correctly while fetching data from the IMAP server. </li>
         </ul>
     </p>
 <h2>Artifacts created</h2>
@@ -111,27 +152,27 @@ The <b>Ingest Settings</b> tab sets the container type the ingested IMAP data wi
       <table style="width:100%">
         <tr>
           <td><b>Artifact Field</b></td>
-          <td><b>Value Details</b></td> 
+          <td><b>Value Details</b></td>
         </tr>
         <tr>
           <td>Source ID</td>
-          <td>Email ID set on the server</td> 
+          <td>Email ID set on the server</td>
         </tr>
         <tr>
           <td>cef.fromEmail</td>
-          <td>From email address</td> 
+          <td>From email address</td>
         </tr>
         <tr>
           <td>cef.toEmail</td>
-          <td>To email address</td> 
+          <td>To email address</td>
         </tr>
         <tr>
           <td>cef.emailHeaders</td>
-          <td>A dictionary containing each email header as a key and it's value as the key-value</td> 
+          <td>A dictionary containing each email header as a key and it's value as the key-value</td>
         </tr>
       </table>
 
-    <a href="/app_resource/imap_9f2e9f72-b0e5-45d6-92a7-09ef820476c1/img/imap_email_artifact.png">
+    <a href="/app_resource/imap_9f2e9f72-b0e5-45d6-92a7-09ef820476c1/img/imap_email_artifact.png" target="_blank">
         <img src="/app_resource/imap_9f2e9f72-b0e5-45d6-92a7-09ef820476c1/img/imap_email_artifact.png"/>
     </a>
     <li>IP Artifact
@@ -190,8 +231,48 @@ The <b>Ingest Settings</b> tab sets the container type the ingested IMAP data wi
         </ul>
       </li>
       ** Since the vault id cannot be represented by a native CEF field, it is placed in the <b>cs6</b> CEF key and the cs6Label key is set to "vault_id".
-    <a href="/app_resource/imap_9f2e9f72-b0e5-45d6-92a7-09ef820476c1/img/imap_vault_artifact.png">
-        <img src="/app_resource/imap_9f2e9f72-b0e5-45d6-92a7-09ef820476c1/img/imap_vault_artifact.png"/>
-      </ul>
-    </a>
+        <a href="/app_resource/imap_9f2e9f72-b0e5-45d6-92a7-09ef820476c1/img/imap_vault_artifact.png" target="_blank">
+            <img src="/app_resource/imap_9f2e9f72-b0e5-45d6-92a7-09ef820476c1/img/imap_vault_artifact.png"/>
+        </a>
+    </ul>
+    </p>
+
+    <h2>Port Information</h2>
+    <p>
+        The app uses IMAP protocol for communicating with the email servers and HTTP/ HTTPS protocol for obtaining/refreshing the access_token. Below are the default ports used by Splunk SOAR.
+        <table>
+            <tr class=plain>
+                <th>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Service Name</th>
+                <th>Transport Protocol</th>
+                <th>Port</th>
+            </tr>
+            <tr>
+                <td>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;http</td>
+                <td>tcp</td>
+                <td>80</td>
+            </tr>
+            <tr>
+                <td>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;https</td>
+                <td>tcp</td>
+                <td>443</td>
+            </tr>
+        </table>
+        Below are the ports used by IMAP library for the connection.
+        <table>
+            <tr class=plain>
+              <th>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Service Name</th>
+              <th>Transport Protocol</th>
+              <th>Port</th>
+            </tr>
+            <tr>
+              <td>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Standard IMAP4</td>
+              <td>tcp</td>
+              <td>143</td>
+            </tr>
+            <tr>
+              <td>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;IMAP4-over-SSL</td>
+              <td>tcp</td>
+              <td>993</td>
+            </tr>
+          </table>
     </p>
