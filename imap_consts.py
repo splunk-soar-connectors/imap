@@ -1,6 +1,6 @@
 # File: imap_consts.py
 #
-# Copyright (c) 2014-2022 Splunk Inc.
+# Copyright (c) 2016-2022 Splunk Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -63,10 +63,14 @@ IMAP_ERR_MAILBOX_SEARCH_FAILED_RESULT = "Mailbox search failed, result: {result}
 IMAP_FETCH_ID_FAILED = "Fetch for uuid: {muuid} failed, reason: {excep}"
 IMAP_FETCH_ID_FAILED_RESULT = "Fetch for uuid: {muuid} failed, result: {result}, data: {data}"
 IMAP_VALIDATE_INTEGER_MESSAGE = "Please provide a valid integer value in the {key} parameter"
-IMAP_ERROR_CODE_MESSAGE = "Error code unavailable"
-IMAP_ERROR_MESSAGE = "Unknown error occurred. Please check the asset configuration and|or action parameters"
-TYPE_ERROR_MESSAGE = "Error occurred while connecting to the IMAP server. Please check the asset configuration and|or the action parameters"
+IMAP_ERR_CODE_MESSAGE = "Error code unavailable"
+IMAP_ERR_MESSAGE = "Unknown error occurred. Please check the asset configuration and|or action parameters"
 IMAP_EXCEPTION_ERR_MESSAGE = "Error Code: {0}. Error Message: {1}"
+IMAP_REQUIRED_PARAM_OAUTH = "ERROR: {0} is a required parameter for OAuth Authentication, please specify one."
+IMAP_REQUIRED_PARAM_BASIC = "ERROR: {0} is a required parameter for Basic Authentication, please specify one."
+IMAP_GENERAL_ERR_MESSAGE = "{}. Details: {}"
+IMAP_STATE_FILE_CORRUPT_ERR = "Error occurred while loading the state file due to its unexpected format. " \
+    "Resetting the state file with the default format. Please try again."
 
 IMAP_MILLISECONDS_IN_A_DAY = 86400000
 IMAP_NUMBER_OF_DAYS_BEFORE_ENDTIME = 10

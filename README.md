@@ -2,7 +2,7 @@
 # IMAP
 
 Publisher: Splunk  
-Connector Version: 3\.2\.9  
+Connector Version: 3\.3\.0  
 Product Vendor: Generic  
 Product Name: IMAP  
 Product Version Supported (regex): "\.\*"  
@@ -11,7 +11,7 @@ Minimum Product Version: 5\.1\.0
 This app supports email ingestion and various investigative actions over IMAP
 
 [comment]: # " File: README.md"
-[comment]: # "  Copyright (c) 2014-2022 Splunk Inc."
+[comment]: # "  Copyright (c) 2016-2022 Splunk Inc."
 [comment]: # ""
 [comment]: # "Licensed under the Apache License, Version 2.0 (the 'License');"
 [comment]: # "you may not use this file except in compliance with the License."
@@ -40,23 +40,7 @@ right of the App name, click on the **Configure New Asset** button.
 In the **Asset Info** tab, the **Asset Name** and **Asset Description** can be whatever you want,
 we've chosen "imap_ingest" for this example. The **Product Vendor** and **Product Name** fields will
 be populated by Phantom and are not user-configurable. Do not click **Save** yet, navigate to the
-next tab, **Asset Settings** .
-
-[![](img/imap_asset_settings.png)](img/imap_asset_settings.png)  
-  
-
-The **Asset Settings** tab provides the configuration information Phantom uses to communicate with
-the mail server. Fill in the **Server IP/Hostname** , **Username** , and **Password** . The
-remaining configuration fields can be adjusted to suit the email environment. Do not click **Save**
-yet, navigate to the next tab, **Ingest Settings** .
-
-**NOTE:**
-
--   One of the configuration fields "Folder to ingest mails from (default is inbox)" can contain
-    letters, digits, blank spaces as well as special characters in its value. Few values like Latin,
-    Polish, etc characters and emojis are not considered valid for this field.
--   For the IMAP app, we won't be able to route traffic through the proxy. So if the user tries to
-    add any proxy in variables of the asset, it won't affect the app's connectivity.
+**Ingest Settings** tab.
 
 [![](img/imap_asset_ingest.png)](img/imap_asset_ingest.png)  
   
@@ -65,11 +49,97 @@ The **Ingest Settings** tab sets the container type the ingested IMAP data will 
 the appropriate label name or create a new label. In this example, the label name **imap** has been
 selected. Choose "Off" for Manual polling from the dropdown of **Select a polling interval or
 schedule to configure polling on this asset** or select "Scheduled" or "Interval". Set the **Polling
-Interval** to the desired number of minutes. NOW you can click **Save** . The settings in the
-**Approval Settings** tab are not used for the communication between Phantom and IMAP and can be
-configured later. You will see the saved Asset. Return to the **Ingest Settings** tab if you are not
-already there. Notice that you now have a **Poll Now** button, as shown here:
+Interval** to the desired number of minutes. The settings in the **Approval Settings** and **Access
+Control** tab are not used for the communication between Phantom and IMAP and can be configured
+later. Navigate to the **Asset Settings** tab if you are not already there.  
+  
+[![](img/imap_asset_settings.png)](img/imap_asset_settings.png)  
+  
 
+The **Asset Settings** tab provides the configuration information Phantom uses to communicate with
+the mail server. Currently, there are two ways to authenticate.
+
+-   Basic
+-   OAuth
+
+## Basic Authentication
+
+Fill in the **Server IP/Hostname** , **Username** , and **Password** . The remaining configuration
+fields can be adjusted to suit the email environment.
+[![](img/imap_test_connectivity.png)](img/imap_test_connectivity.png)
+
+## OAuth Authentication
+
+Follow the steps outlined below to set up the OAuth application:
+
+-   Open the [Google API Console Credentials
+    page](https://console.developers.google.com/apis/credentials) .
+-   Click **Select a project** , then **NEW PROJECT** , and enter a name for the project, and
+    optionally, edit the provided project ID. Click **Create** .
+    [![](img/imap_oauth_select_project.png)](img/imap_oauth_select_project.png)
+-   Select the created project from the top left corner, if not already selected.
+-   On the **Credentials** page, select **Create credentials** , then **OAuth client ID** .
+-   You may be prompted to set a product name on the Consent screen. If so, click **Configure
+    consent screen** , supply the requested information, and click **Save** to return to the
+    Credentials screen.
+-   Select **Web Application** for the **Application Type** . The **Redirect URLs** should be filled
+    here. We will get **Redirect URLs** from the Phantom asset we create below in the section titled
+    "Phantom asset for IMAP". You can keep it blank for now and Edit/Add it later.
+-   Click **Create** .
+-   On the page that appears, Note down the **client ID** and **client secret** somewhere secure, as
+    you will need them while configuring the Phantom asset.
+
+### Phantom Asset for IMAP
+
+When creating an asset for the **IMAP** app, place the **client ID** and **client secret** in their
+corresponding fields. Then, after filling in other values, click **SAVE** . Note that the password
+field is optional for OAuth authentication. Keep the default values for the **OAuth Authorization
+URL** , **OAuth Token URL** and **OAuth API Scope** parameters.  
+  
+After saving, a new field will appear in the **Asset Settings** tab. Take the URL found in the
+**POST incoming for IMAP to this location** field and place it in the **Redirect URIs** field
+mentioned above. You can edit the client listed under **OAuth 2.0 Client IDs** on the
+**Credentials** page to add a redirect url. After doing so, the URL should look something like
+this:  
+  
+https://\<phantom_host>/rest/handler/imap_9f2e9f72-b0e5-45d6-92a7-09ef820476c1/\<asset_name>  
+  
+Additionally, updating the Base URL in the Phantom Company Settings is also required. Navigate to
+**Administration \> Company Settings \> Info** to configure the Base URL For Phantom Appliance.
+Then, select **Save Changes** .  
+  
+Once, the asset is configured follow the below steps to generate the access_token and refresh_token
+pair.
+
+-   Hit the **TEST CONNECTIVITY** button under **Asset Settings**
+-   You will be asked to open a link in a new tab. Open the link in the same browser so that you are
+    logged into Splunk Phantom for the redirect. If you wish to use a different browser, log in to
+    the Splunk Phantom first, and then open the provided link.
+-   Proceed to login to the Google site
+-   You will be prompted to agree to the permissions requested by the App
+-   If all goes well the browser should instruct you to close the tab
+-   Now go back and check the message on the Test Connectivity dialog box, it should say
+    Connectivity test passed
+
+**NOTE:**
+
+-   For the IMAP app, we won't be able to route traffic through the proxy. So if the user tries to
+    add any proxy in variables of the asset, it won't affect the app's connectivity. But the
+    configured proxy variables will be used while generating tokens for the **OAuth authentication**
+    .
+-   As of now, the OAuth authentication is supported for only Gmail mailbox.
+-   The parameter **Use SSL** will be ignored for the **OAuth authentication** , SSL mechanism will
+    be used regardless of the parameter value.
+
+  
+  
+
+Now that the config is out of the way, let's delve into the two modes, in which ingestion can occur
+and the differences between them.
+
+## POLL NOW
+
+Notice that you now have a **Poll Now** button, as shown here:
 [![](img/imap_poll_now.png)](img/imap_poll_now.png)  
   
 
@@ -81,11 +151,9 @@ indicating progress. Parsing data might take a while. The dialog should look lik
 [![](img/imap_test_poll.png)](img/imap_test_poll.png)  
   
 
-Now that the config is out of the way, let's delve into the two modes that ingestion can occur and
-the differences between them. One thing to note is that for every email that is ingested, a single
-container is created containing multiple artifacts.
-
-## POLL NOW
+One thing to note is that for every email that is ingested, a single container is created containing
+multiple artifacts. The **Maximum artifacts** value will be ignored and all the possible artifacts
+will be ingested into the container.
 
 POLL NOW should be used to get a sense of the containers and artifacts that are created by the app.
 The POLL NOW window allows the user to set the "Maximum containers" that should be ingested at this
@@ -157,9 +225,9 @@ following properties:
       
     The source ID of the container will be set to the "{hash_value_of_foldername} : {email_id}".
 
-The data section of the container will contain the complete raw email in a key named 'raw_email'.
-The UI allows the user to download this raw data JSON into a file. This same data can be extracted
-in a playbook also for further processing.
+The **data** section of the container will contain the complete raw email in a key named
+'raw_email'. The UI allows the user to download this raw data JSON into a file. This same data can
+be extracted in a playbook also for further processing.
 
 ## Playbook Backward Compatibility
 
@@ -251,6 +319,23 @@ The App will create the following type of artifacts:
     CEF key and the cs6Label key is set to "vault_id".
     [![](img/imap_vault_artifact.png)](img/imap_vault_artifact.png)
 
+## Port Information
+
+The app uses IMAP protocol for communicating with the email servers and HTTP/ HTTPS protocol for
+obtaining/refreshing the access_token. Below are the default ports used by Splunk SOAR.
+
+|         Service Name | Transport Protocol | Port |
+|----------------------|--------------------|------|
+|         http         | tcp                | 80   |
+|         https        | tcp                | 443  |
+
+Below are the ports used by IMAP library for the connection.
+
+|         Service Name   | Transport Protocol | Port |
+|------------------------|--------------------|------|
+|         Standard IMAP4 | tcp                | 143  |
+|         IMAP4-over-SSL | tcp                | 993  |
+
 
 ### Configuration Variables
 The below configuration variables are required for this Connector to operate.  These variables are specified when configuring a IMAP asset in SOAR.
@@ -258,8 +343,14 @@ The below configuration variables are required for this Connector to operate.  T
 VARIABLE | REQUIRED | TYPE | DESCRIPTION
 -------- | -------- | ---- | -----------
 **server** |  required  | string | Server IP/Hostname
-**username** |  optional  | string | Username
+**auth\_type** |  optional  | string | Authentication Mechanism to Use
+**username** |  required  | string | Username
 **password** |  optional  | password | Password
+**client\_id** |  optional  | string | OAuth Client ID
+**client\_secret** |  optional  | password | OAuth Client Secret
+**auth\_url** |  optional  | string | OAuth Authorization URL
+**token\_url** |  optional  | string | OAuth Token URL
+**scopes** |  optional  | string | OAuth API Scope \(JSON formatted list\)
 **folder** |  optional  | string | Folder to ingest mails from \(default is inbox\)
 **ingest\_manner** |  required  | string | How to ingest
 **first\_run\_max\_emails** |  required  | numeric | Maximum emails to poll first time
@@ -310,37 +401,51 @@ DATA PATH | TYPE | CONTAINS
 --------- | ---- | --------
 action\_result\.status | string | 
 action\_result\.parameter\.container\_id | numeric |  `phantom container id` 
+action\_result\.parameter\.folder | string | 
 action\_result\.parameter\.id | string |  `imap email id` 
 action\_result\.parameter\.ingest\_email | boolean | 
-action\_result\.parameter\.folder | string | 
-action\_result\.data\.\*\.X\-Mozilla\-Draft\-Info | string | 
-action\_result\.data\.\*\.X\-Identity\-Key | string | 
-action\_result\.data\.\*\.X\-Account\-Key | string | 
-action\_result\.data\.\*\.FCC | string | 
-action\_result\.data\.\*\.CC | string | 
+action\_result\.data\.\*\.ARC\-Authentication\-Results | string | 
+action\_result\.data\.\*\.ARC\-Message\-Signature | string | 
+action\_result\.data\.\*\.ARC\-Seal | string | 
 action\_result\.data\.\*\.Accept\-Language | string | 
+action\_result\.data\.\*\.Authentication\-Results | string | 
+action\_result\.data\.\*\.CC | string | 
 action\_result\.data\.\*\.Content\-Language | string | 
 action\_result\.data\.\*\.Content\-Transfer\-Encoding | string | 
 action\_result\.data\.\*\.Content\-Type | string | 
+action\_result\.data\.\*\.DKIM\-Signature | string | 
 action\_result\.data\.\*\.Date | string | 
+action\_result\.data\.\*\.Delivered\-To | string | 
+action\_result\.data\.\*\.FCC | string | 
+action\_result\.data\.\*\.Feedback\-ID | string | 
 action\_result\.data\.\*\.From | string | 
 action\_result\.data\.\*\.In\-Reply\-To | string | 
 action\_result\.data\.\*\.MIME\-Version | string | 
 action\_result\.data\.\*\.Message\-ID | string | 
 action\_result\.data\.\*\.Received | string | 
+action\_result\.data\.\*\.Received\-SPF | string | 
 action\_result\.data\.\*\.References | string | 
+action\_result\.data\.\*\.Reply\-To | string | 
 action\_result\.data\.\*\.Return\-Path | string |  `email` 
 action\_result\.data\.\*\.Subject | string | 
 action\_result\.data\.\*\.Thread\-Index | string | 
 action\_result\.data\.\*\.Thread\-Topic | string | 
 action\_result\.data\.\*\.To | string | 
 action\_result\.data\.\*\.User\-Agent | string | 
+action\_result\.data\.\*\.X\-Account\-Key | string | 
+action\_result\.data\.\*\.X\-Gm\-Message\-State | string | 
+action\_result\.data\.\*\.X\-Google\-DKIM\-Signature | string | 
+action\_result\.data\.\*\.X\-Google\-Id | string | 
+action\_result\.data\.\*\.X\-Google\-Smtp\-Source | string | 
+action\_result\.data\.\*\.X\-Identity\-Key | string | 
 action\_result\.data\.\*\.X\-MS\-Exchange\-Organization\-AuthAs | string | 
 action\_result\.data\.\*\.X\-MS\-Exchange\-Organization\-AuthMechanism | string | 
 action\_result\.data\.\*\.X\-MS\-Exchange\-Organization\-AuthSource | string | 
 action\_result\.data\.\*\.X\-MS\-Exchange\-Organization\-SCL | string | 
 action\_result\.data\.\*\.X\-MS\-Has\-Attach | string | 
 action\_result\.data\.\*\.X\-MS\-TNEF\-Correlator | string | 
+action\_result\.data\.\*\.X\-Mozilla\-Draft\-Info | string | 
+action\_result\.data\.\*\.X\-Received | string | 
 action\_result\.summary\.container\_id | numeric |  `phantom container id` 
 action\_result\.message | string | 
 summary\.total\_objects | numeric | 
