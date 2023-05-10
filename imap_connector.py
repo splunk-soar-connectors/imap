@@ -922,8 +922,8 @@ class ImapConnector(BaseConnector):
             self.debug_print(action_result.get_message())
             return action_result.get_status()
 
-        self.save_progress(IMAP_SUCC_CONNECTIVITY_TEST)
-        return action_result.set_status(phantom.APP_SUCCESS, IMAP_SUCC_CONNECTIVITY_TEST)
+        self.save_progress(IMAP_SUCCESS_CONNECTIVITY_TEST)
+        return action_result.set_status(phantom.APP_SUCCESS, IMAP_SUCCESS_CONNECTIVITY_TEST)
 
     def handle_action(self, param):
         """Function that handles all the actions
