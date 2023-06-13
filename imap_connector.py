@@ -652,10 +652,17 @@ class ImapConnector(BaseConnector):
                 continue
 
             uid = parse_data['uid']
+
+            if uid and not uid.isdigit():
+                parse_data = parse('{left_ingore}(UID {uid} {right_ignore}', line)
+                uid = parse_data['uid']
+
             if not uid:
                 continue
-
-            uids.append(int(uid))
+            try:
+                uids.append(int(uid))
+            except Exception:
+                return phantom.APP_ERROR, "Error Occurred whille fetching the UID", None
 
         if not uids:
             return phantom.APP_SUCCESS, "Empty UID list", None
