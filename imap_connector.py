@@ -661,8 +661,9 @@ class ImapConnector(BaseConnector):
                 continue
             try:
                 uids.append(int(uid))
-            except Exception:
-                return phantom.APP_ERROR, "Error Occurred whille fetching the UID", None
+            except Exception as e:
+                self.debug_print("Error occurred while fetching UID: {}".format(str(e)))
+                continue
 
         if not uids:
             return phantom.APP_SUCCESS, "Empty UID list", None
