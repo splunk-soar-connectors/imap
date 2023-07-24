@@ -5,7 +5,7 @@
     "type": "email",
     "publisher": "Splunk",
     "main_module": "imap_connector.py",
-    "app_version": "3.3.1",
+    "app_version": "3.3.2",
     "utctime_updated": "2023-05-10T22:11:21.000000Z",
     "package_name": "phantom_imap",
     "product_vendor": "Generic",
