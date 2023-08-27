@@ -788,6 +788,7 @@ class ProcessEmail(object):
                             payload = base64.b64encode(payload)
                             cef_artifact['body_base64encoded'] = True
                         cef_artifact.update({'bodyPart{}'.format(i): payload})
+                        cef_artifact.update({'bodyPart{}ContentType'.format(i): cur_part['Content-Type']})
                         i += 1
 
         # Adding the email id as a cef artifact crashes the UI when trying to show the action dialog box
