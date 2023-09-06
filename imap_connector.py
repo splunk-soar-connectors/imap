@@ -302,6 +302,28 @@ class ImapConnector(BaseConnector):
 
             self.save_state(self._state)
         else:
+            """
+            We are in test_connectivity. First try to get the access token from saved state.
+            Only re-authenticate if unable to get an access token from saved state. This allows
+            the existing Oauth state to persist until a user takes manual action. This will
+            avoid the following situation; SOAR will periodically invoke test connectivity for
+            each configured asset to check the health of the asset. With the previous behavior,
+            this will result in the Oauth state being mysteriously purged without any notification.
+            """
+            if self._state.get('oauth_token', {}).get('access_token'):
+                self.save_progress("Retrieved access token from saved state")
+                ret_val = self._connect_to_server(action_result)
+                if phantom.is_fail(ret_val):
+                    # this can failed due to network connectivity. The Oauth token may
+                    # still be valid.
+                    self.save_progress("Failed to connect to imap server")
+                    return phantom.APP_ERROR, action_result.get_message()
+                else:
+                    self.save_progress("Successfully connected to imap server")
+                    self.save_state(self._state)
+                    return phantom.APP_SUCCESS, ""
+
+            # Okay, no Oauth/access tokens. Try authenticating asset.
             self.debug_print("Try to generate token from authorization code")
             asset_id = self.get_asset_id()
             rsh = RequestStateHandler(asset_id)  # Use the states from the OAuth login
@@ -925,6 +947,20 @@ class ImapConnector(BaseConnector):
         self.save_progress(IMAP_SUCCESS_CONNECTIVITY_TEST)
         return action_result.set_status(phantom.APP_SUCCESS, IMAP_SUCCESS_CONNECTIVITY_TEST)
 
+    def _handle_delete_oauth_token(self, param):
+        # delete the entire state file to remove oauth_token
+        action_result = self.add_action_result(ActionResult(dict(param)))
+        rsh = RequestStateHandler(asset_id)  # Use the states from the OAuth login
+        rsh.delete_state()
+        return action_result.set_status(phantom.APP_SUCCESS)
+
+    def _handle_refresh_accces_token(self, param):
+        action_result = self.add_action_result(ActionResult(dict(param)))
+        ret_val, message = self._interactive_auth_refresh()
+        if not ret_val:
+            return action_result.set_status(phantom.APP_ERROR, message)
+        return action_result.set_status(phantom.APP_SUCCESS)
+
     def handle_action(self, param):
         """Function that handles all the actions
 
@@ -948,6 +984,10 @@ class ImapConnector(BaseConnector):
             result = self._test_connectivity(param)
         elif action == self.ACTION_ID_GET_EMAIL:
             result = self._get_email(param)
+        elif action == "delete_oauth_token":
+            result = self._handle_delete_oauth_token(param)
+        elif action == "refresh_access_token":
+            result = self._handle_refresh_accces_token(param)
 
         return result
 
