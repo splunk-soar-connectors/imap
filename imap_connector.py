@@ -950,7 +950,7 @@ class ImapConnector(BaseConnector):
     def _handle_delete_oauth_token(self, param):
         action_result = self.add_action_result(ActionResult(dict(param)))
         # delete the entire secondary state file to remove oauth_token, as per _set_interactive_auth()
-        rsh = RequestStateHandler(asset_id)  # Use the states from the OAuth login
+        rsh = RequestStateHandler(self.get_asset_id())
         rsh.delete_state()
         # delete oauth_token from regular state file
         self._state['oauth_token'] = {}
