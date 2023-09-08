@@ -948,10 +948,13 @@ class ImapConnector(BaseConnector):
         return action_result.set_status(phantom.APP_SUCCESS, IMAP_SUCCESS_CONNECTIVITY_TEST)
 
     def _handle_delete_oauth_token(self, param):
-        # delete the entire state file to remove oauth_token
         action_result = self.add_action_result(ActionResult(dict(param)))
+        # delete the entire secondary state file to remove oauth_token, as per _set_interactive_auth()
         rsh = RequestStateHandler(asset_id)  # Use the states from the OAuth login
         rsh.delete_state()
+        # delete oauth_token from regular state file
+        self._state['oauth_token'] = {}
+        self.save_state(self._state)
         return action_result.set_status(phantom.APP_SUCCESS)
 
     def _handle_refresh_accces_token(self, param):
