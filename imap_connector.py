@@ -305,16 +305,16 @@ class ImapConnector(BaseConnector):
             """
             We are in test_connectivity. First try to get the access token from saved state.
             Only re-authenticate if unable to get an access token from saved state. This allows
-            the existing Oauth state to persist until a user takes manual action. This will
+            the existing OAuth state to persist until a user takes manual action. This will
             avoid the following situation; SOAR will periodically invoke test connectivity for
             each configured asset to check the health of the asset. With the previous behavior,
-            this will result in the Oauth state being mysteriously purged without any notification.
+            this will result in the OAuth state being mysteriously purged without any notification.
             """
             if self._state.get('oauth_token', {}).get('access_token'):
                 self.save_progress("Retrieved access token from saved state")
                 ret_val = self._connect_to_server(action_result)
                 if phantom.is_fail(ret_val):
-                    # this can failed due to network connectivity. The Oauth token may
+                    # this can failed due to network connectivity. The OAuth token may
                     # still be valid.
                     self.save_progress("Failed to connect to imap server")
                     return phantom.APP_ERROR, action_result.get_message()
@@ -323,7 +323,7 @@ class ImapConnector(BaseConnector):
                     self.save_state(self._state)
                     return phantom.APP_SUCCESS, ""
 
-            # Okay, no Oauth/access tokens. Try authenticating asset.
+            # Okay, no OAuth/access tokens. Try authenticating asset.
             self.debug_print("Try to generate token from authorization code")
             asset_id = self.get_asset_id()
             rsh = RequestStateHandler(asset_id)  # Use the states from the OAuth login

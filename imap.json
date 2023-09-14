@@ -530,7 +530,7 @@
         {
             "action": "delete oauth token",
             "description": "delete existing oauth token",
-	    "verbose": "Delete the existing oauth token by deleting the state file. This action is required before attempting to re-authenticate with Oauth via test connectivity",
+	    "verbose": "Delete the existing oauth token. This action is required before attempting to re-authenticate with OAuth via test connectivity",
             "type": "generic",
             "identifier": "delete_oauth_token",
             "read_only": false,
