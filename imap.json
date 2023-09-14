@@ -11,7 +11,7 @@
     "product_vendor": "Generic",
     "product_name": "IMAP",
     "product_version_regex": ".*",
-    "min_phantom_version": "5.1.0",
+    "min_phantom_version": "5.5.0",
     "rest_handler": "request_handler.handle_request",
     "fips_compliant": true,
     "latest_tested_versions": [
@@ -529,8 +529,8 @@
         },
         {
             "action": "delete oauth token",
-            "description": "delete existing oauth token",
-	    "verbose": "Delete the existing oauth token. This action is required before attempting to re-authenticate with OAuth via test connectivity",
+            "description": "Delete existing oauth token",
+	    "verbose": "Delete the existing oauth token. This action is required before attempting to re-authenticate with OAuth via test connectivity.",
             "type": "generic",
             "identifier": "delete_oauth_token",
             "read_only": false,
@@ -540,6 +540,14 @@
                 "type": "json"
             },
             "output": [
+                {
+                    "data_path": "summary.total_objects",
+                    "data_type": "numeric"
+		},
+                {
+                    "data_path": "action_result.message",
+                    "data_type": "string"
+		},
                 {
                     "data_path": "action_result.status",
                     "data_type": "string",
@@ -553,7 +561,7 @@
 	},
         {
             "action": "refresh access token",
-            "description": "refresh oauth access token",
+            "description": "Refresh oauth access token",
             "type": "generic",
             "identifier": "refresh_access_token",
             "read_only": false,
@@ -563,6 +571,14 @@
                 "type": "json"
             },
             "output": [
+                {
+                    "data_path": "summary.total_objects",
+                    "data_type": "numeric"
+		},
+                {
+                    "data_path": "action_result.message",
+                    "data_type": "string"
+		},
                 {
                     "data_path": "action_result.status",
                     "data_type": "string",
