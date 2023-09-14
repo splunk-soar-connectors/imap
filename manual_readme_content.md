@@ -77,13 +77,15 @@ Follow the steps outlined below to set up the OAuth application:
 -   On the page that appears, Note down the **client ID** and **client secret** somewhere secure, as
     you will need them while configuring the Phantom asset.
 
-**Note:** Previously any invocation of **test_connectivity** will start a new Oauth authentication process.
-          This is no longer desirable behavior, because when SOAR runs its automated health check for assets
-          this will delete any existing (possibly valid) Oauth token and break automated ingestion. We
-          changed **test_connectivity** to first check for an existing Oauth token before starting the
-          authentication process. If for some reason, you wish to invoke Oauth authentication while an
-          existing (possibly bad) token exists you will need to first call the **delete_oauth_token**
-          action to delete the existing token.
+**NOTE:**
+
+-   Previously any invocation of **test_connectivity** will start a new Oauth authentication process.
+    This is no longer desirable behavior, because when SOAR runs its automated health check for assets
+    this will delete any existing (possibly valid) Oauth token and break automated ingestion. We
+    changed **test_connectivity** to first check for an existing Oauth token before starting the
+    authentication process. If for some reason, you wish to invoke Oauth authentication while an
+    existing (possibly bad) token exists you will need to first call the **delete_oauth_token**
+    action to delete the existing token.
 
 ### Phantom Asset for IMAP
 
