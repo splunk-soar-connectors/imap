@@ -959,7 +959,7 @@ class ImapConnector(BaseConnector):
         self.save_progress("OAuth token deleted")
         return action_result.set_status(phantom.APP_SUCCESS)
 
-    def _handle_refresh_accces_token(self, param):
+    def _handle_refresh_access_token(self, param):
         action_result = self.add_action_result(ActionResult(dict(param)))
         self.save_progress("refreshing OAuth access token")
         ret_val, message = self._interactive_auth_refresh()
@@ -994,7 +994,7 @@ class ImapConnector(BaseConnector):
         elif action == "delete_oauth_token":
             result = self._handle_delete_oauth_token(param)
         elif action == "refresh_access_token":
-            result = self._handle_refresh_accces_token(param)
+            result = self._handle_refresh_access_token(param)
 
         return result
 
