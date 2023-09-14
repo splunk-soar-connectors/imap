@@ -79,11 +79,11 @@ Follow the steps outlined below to set up the OAuth application:
 
 **NOTE:**
 
--   Previously any invocation of **test_connectivity** will start a new Oauth authentication process.
+-   Previously any invocation of **test_connectivity** will start a new OAuth authentication process.
     This is no longer desirable behavior, because when SOAR runs its automated health check for assets
-    this will delete any existing (possibly valid) Oauth token and break automated ingestion. We
-    changed **test_connectivity** to first check for an existing Oauth token before starting the
-    authentication process. If for some reason, you wish to invoke Oauth authentication while an
+    this will delete any existing (possibly valid) OAuth token and break automated ingestion. We
+    changed **test_connectivity** to first check for an existing OAuth token before starting the
+    authentication process. If for some reason, you wish to invoke OAuth authentication while an
     existing (possibly bad) token exists you will need to first call the **delete_oauth_token**
     action to delete the existing token.
 
