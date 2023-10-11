@@ -2,11 +2,11 @@
 # IMAP
 
 Publisher: Splunk  
-Connector Version: 3.3.2  
+Connector Version: 3.4.0  
 Product Vendor: Generic  
 Product Name: IMAP  
 Product Version Supported (regex): ".\*"  
-Minimum Product Version: 5.1.0  
+Minimum Product Version: 6.1.0  
 
 This app supports email ingestion and various investigative actions over IMAP
 
@@ -353,7 +353,7 @@ VARIABLE | REQUIRED | TYPE | DESCRIPTION
 **scopes** |  optional  | string | OAuth API Scope (JSON formatted list)
 **folder** |  optional  | string | Folder to ingest mails from (default is inbox)
 **ingest_manner** |  required  | string | How to ingest
-**first_run_max_emails** |  required  | numeric | Maximum emails to poll first time
+**first_run_max_emails** |  required  | numeric | Maximum emails to poll first time for schedule polling
 **max_emails** |  required  | numeric | Maximum emails to poll
 **use_ssl** |  optional  | boolean | Use SSL
 **extract_attachments** |  optional  | boolean | Extract Attachments
