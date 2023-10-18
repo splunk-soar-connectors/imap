@@ -244,7 +244,6 @@ class ImapConnector(BaseConnector):
             return phantom.APP_ERROR, "Timed out waiting for login"
         self._state['oauth_token'] = self._rsh.load_app_state(self).get('oauth_token')
         self._state['is_encrypted'] = False
-        self.debug_print("AP's Error occurred: {}".format(self._state))
         self.save_state()
         self._state = self.load_state()
         return phantom.APP_SUCCESS, ""
@@ -260,6 +259,7 @@ class ImapConnector(BaseConnector):
             return phantom.APP_ERROR, "Unable to get refresh token. Has Test Connectivity been run?"
 
         if client_id != self._state.get('client_id', ''):
+            self._state['oauth_token']['refresh_token'] = None
             return phantom.APP_ERROR, "Client ID has been changed. Please run Test Connectivity again."
 
         refresh_token = oauth_token['refresh_token']
