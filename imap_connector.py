@@ -279,6 +279,7 @@ class ImapConnector(BaseConnector):
         try:
             response_json = r.json()
             if response_json.get("error"):
+                self.debug_print("Error Occurred: {}: , reason: {}".format(response_json, response_json.get("error")))
                 return phantom.APP_ERROR, "Invalid refresh token. Please run the test connectivity again."
             oauth_token.update(r.json())
         except Exception:
