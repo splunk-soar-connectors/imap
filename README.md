@@ -6,7 +6,7 @@ Connector Version: 3.4.0
 Product Vendor: Generic  
 Product Name: IMAP  
 Product Version Supported (regex): ".\*"  
-Minimum Product Version: 6.1.0  
+Minimum Product Version: 5.1.0  
 
 This app supports email ingestion and various investigative actions over IMAP
 
