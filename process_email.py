@@ -768,11 +768,12 @@ class ProcessEmail(object):
                         queue.extend(payload)
                     else:
                         encoding = cur_part['Content-Transfer-Encoding']
-                        if encoding and 'base64' in encoding.lower():
-                            payload = base64.b64decode(''.join(payload.splitlines()))
-                        elif encoding != '8bit':
-                            payload = cur_part.get_payload(decode=True)
-                            payload = UnicodeDammit(payload).unicode_markup.encode('utf-8').decode('utf-8')
+                        if encoding:
+                            if 'base64' in encoding.lower():
+                                payload = base64.b64decode(''.join(payload.splitlines()))
+                            elif encoding != '8bit':
+                                payload = cur_part.get_payload(decode=True)
+                                payload = UnicodeDammit(payload).unicode_markup.encode('utf-8').decode('utf-8')
                         try:
                             json.dumps({'body': payload})
                         except TypeError:  # py3

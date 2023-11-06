@@ -5,7 +5,7 @@
     "type": "email",
     "publisher": "Splunk",
     "main_module": "imap_connector.py",
-    "app_version": "3.3.2",
+    "app_version": "3.3.3",
     "utctime_updated": "2023-05-10T22:11:21.000000Z",
     "package_name": "phantom_imap",
     "product_vendor": "Generic",
@@ -623,7 +623,7 @@
             },
             {
                 "module": "soupsieve",
-                "input_file": "wheels/py3/soupsieve-2.4.1-py3-none-any.whl"
+                "input_file": "wheels/py3/soupsieve-2.5-py3-none-any.whl"
             }
         ]
     }
