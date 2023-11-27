@@ -647,11 +647,8 @@ class ImapConnector(BaseConnector):
 
         # get the UIDs
         uids = [int(uid) for uid in data[0].split()]
-        if not uids:
-            return phantom.APP_SUCCESS, "Empty UID list", None
 
-        # if nothing came on or after the lower_id then return
-        if not uids:
+        if len(uids) == 1 and uids[0] < lower_id:
             return phantom.APP_SUCCESS, "Empty UID list when greater than lower_id: {0}".format(lower_id), None
 
         # sort it
