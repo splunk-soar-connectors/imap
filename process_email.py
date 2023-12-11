@@ -767,11 +767,12 @@ class ProcessEmail(object):
                         queue.extend(payload)
                     else:
                         encoding = cur_part['Content-Transfer-Encoding']
-                        if encoding and 'base64' in encoding.lower():
-                            payload = base64.b64decode(''.join(payload.splitlines()))
-                        elif encoding != '8bit':
-                            payload = cur_part.get_payload(decode=True)
-                            payload = UnicodeDammit(payload).unicode_markup.encode('utf-8').decode('utf-8')
+                        if encoding:
+                            if 'base64' in encoding.lower():
+                                payload = base64.b64decode(''.join(payload.splitlines()))
+                            elif encoding != '8bit':
+                                payload = cur_part.get_payload(decode=True)
+                                payload = UnicodeDammit(payload).unicode_markup.encode('utf-8').decode('utf-8')
                         try:
                             json.dumps({'body': payload})
                         except TypeError:  # py3
@@ -787,6 +788,7 @@ class ProcessEmail(object):
                             payload = base64.b64encode(payload)
                             cef_artifact['body_base64encoded'] = True
                         cef_artifact.update({'bodyPart{}'.format(i): payload})
+                        cef_artifact.update({'bodyPart{}ContentType'.format(i): cur_part['Content-Type']})
                         i += 1
 
         # Adding the email id as a cef artifact crashes the UI when trying to show the action dialog box
