@@ -5,7 +5,7 @@
     "type": "email",
     "publisher": "Splunk",
     "main_module": "imap_connector.py",
-    "app_version": "3.3.3",
+    "app_version": "3.4.0",
     "utctime_updated": "2023-05-10T22:11:21.000000Z",
     "package_name": "phantom_imap",
     "product_vendor": "Generic",
@@ -16,7 +16,7 @@
     "fips_compliant": true,
     "latest_tested_versions": [
         "On-premise Outlook Web Access v14.3.301.0, Mailbox server Microsoft Exchange v14.3.123.0",
-        "OAuth, Gmail May 10, 2023"
+        "OAuth, Gmail October 10, 2023"
     ],
     "python_version": "3",
     "logo": "logo_splunk.svg",
@@ -103,15 +103,15 @@
         "first_run_max_emails": {
             "data_type": "numeric",
             "order": 12,
-            "description": "Maximum emails to poll first time",
-            "value": "2000",
+            "description": "Maximum emails to poll first time for schedule polling",
+            "default": 2000,
             "required": true
         },
         "max_emails": {
             "data_type": "numeric",
             "order": 13,
             "description": "Maximum emails to poll",
-            "value": "100",
+            "default": 100,
             "required": true
         },
         "use_ssl": {

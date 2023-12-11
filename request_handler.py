@@ -17,6 +17,7 @@ import base64
 import json
 import os
 
+import encryption_helper
 import requests
 from django.http import HttpResponse
 
@@ -42,14 +43,13 @@ class IMAPRequestHandler:
         self._rsh = None
 
     def _return_error(self, error_msg, status):
-        state = self._rsh.load_state()
+        state = self._rsh.load_app_state()
         state['error'] = True
-        self._rsh.save_state(state)
+        self._rsh.save_app_state(state)
         return HttpResponse(error_msg, status=status, content_type="text/plain")
 
     def _get_oauth_token(self, code):
-        state = self._rsh.load_state()
-
+        state = self._rsh.load_app_state()
         client_id = state['client_id']
         redirect_uri = state['redirect_url']
         client_secret = base64.b64decode(state['client_secret']).decode()
@@ -74,7 +74,8 @@ class IMAPRequestHandler:
                 401
             )
         state['oauth_token'] = resp_json
-        self._rsh.save_state(state)
+        state['is_encrypted'] = False
+        self._rsh.save_app_state(state)
 
         return True, None
 
@@ -84,13 +85,15 @@ class IMAPRequestHandler:
 
             asset_id = GET.get('state')
             self._rsh = RequestStateHandler(asset_id)
+            if not self._rsh.is_valid_asset_id(asset_id):
+                return self._return_error("Invalid asset id provided", 401)
+
             error = GET.get('error')
             if error:
                 error_msg = GET.get('error_description')
                 return self._return_error(error_msg, 401)
 
             code = GET.get('code')
-
             ret_val, http_object = self._get_oauth_token(code)
 
             if ret_val is False:
@@ -103,44 +106,110 @@ class IMAPRequestHandler:
 
 class RequestStateHandler:
     def __init__(self, asset_id):
-        asset_id = str(asset_id)
-        if asset_id and asset_id.isalnum():
-            self._asset_id = asset_id
-        else:
-            raise AttributeError("RequestStateHandler got invalid asset_id")
+        self._asset_id = asset_id
 
     def _get_state_file(self):
         dirpath = os.path.split(__file__)[0]
         state_file = "{0}/{1}_state.json".format(dirpath, self._asset_id)
         return state_file
 
-    def delete_state(self):
+    @staticmethod
+    def is_valid_asset_id(asset_id):
+        """ This function validates an asset id.
+        Must be an alphanumeric string of less than 128 characters.
+
+        :param asset_id: asset_id
+        :return: is_valid: Boolean True if valid, False if not.
+        """
+        if isinstance(asset_id, str) and asset_id.isalnum() and len(asset_id) <= 128:
+            return True
+        return False
+
+    def delete_state(self, connector):
         state_file = self._get_state_file()
         try:
             os.remove(state_file)
-        except Exception:
-            pass
+        except Exception as ex:
+            if connector:
+                connector.error_print("Error occurred while deleting state file: {}".format(str(ex)))
 
         return True
 
-    def save_state(self, state):
+    def encrypt_state(self, state, connector=None):
+        if state.get("is_encrypted"):
+            return state
+
+        try:
+            if state.get("oauth_token") and state.get("oauth_token", {}).get("access_token"):
+                state["oauth_token"]["access_token"] = encryption_helper.encrypt(
+                    state["oauth_token"]["access_token"], self._asset_id)
+        except Exception as ex:
+            if connector:
+                connector.error_print("{}: {}".format(IMAP_ENCRYPTION_ERROR, str(ex)))
+
+        try:
+            if state.get("oauth_token") and state.get("oauth_token", {}).get("refresh_token"):
+                state["oauth_token"]["refresh_token"] = encryption_helper.encrypt(
+                    state["oauth_token"]["refresh_token"], self._asset_id)
+        except Exception as ex:
+            if connector:
+                connector.error_print("{}: {}".format(IMAP_ENCRYPTION_ERROR, str(ex)))
+        state["is_encrypted"] = True
+        return state
+
+    def decrypt_state(self, state, connector=None):
+        if not state.get("is_encrypted"):
+            return state
+        try:
+            if state.get("oauth_token") and state.get("oauth_token", {}).get("access_token"):
+                state["oauth_token"]["access_token"] = encryption_helper.decrypt(
+                    state["oauth_token"]["access_token"],
+                    self._asset_id
+                )
+        except Exception as ex:
+            state["oauth_token"]["access_token"] = None
+            if connector:
+                connector.error_print("{}: {}".format(IMAP_DECRYPTION_ERROR, str(ex)))
+
+        try:
+            if state.get("oauth_token") and state.get("oauth_token", {}).get("refresh_token"):
+                state["oauth_token"]["refresh_token"] = encryption_helper.decrypt(
+                    state["oauth_token"]["refresh_token"],
+                    self._asset_id
+                )
+        except Exception as ex:
+            state["oauth_token"]["refresh_token"] = None
+            if connector:
+                connector.error_print("{}: {}".format(IMAP_DECRYPTION_ERROR, str(ex)))
+
+        state["is_encrypted"] = False
+
+        return state
+
+    def save_app_state(self, state, connector=None):
+        state = self.encrypt_state(state, connector)
         state_file = self._get_state_file()
         try:
             with open(state_file, 'w+') as fp:
                 fp.write(json.dumps(state))
-        except Exception:
-            pass
+        except Exception as ex:
+            if connector:
+                connector.error_print("Error occurred while saving state: {}".format(str(ex)))
 
         return True
 
-    def load_state(self):
+    def load_app_state(self, connector=None, decrypt=True):
         state_file = self._get_state_file()
         state = {}
         try:
             with open(state_file, 'r') as fp:
                 in_json = fp.read()
                 state = json.loads(in_json)
-        except Exception:
-            pass
+        except Exception as ex:
+            if connector:
+                connector.error_print("Error occurred while saving state: {}".format(str(ex)))
 
+        if not decrypt:
+            return state
+        state = self.decrypt_state(state, connector)
         return state
