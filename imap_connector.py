@@ -187,7 +187,6 @@ class ImapConnector(BaseConnector):
     def _interactive_auth_initial(self, client_id, client_secret):
 
         state = self._rsh.load_app_state(self)
-        self.debug_print("First time loading state: {}".format(state))
 
         ret_val, app_rest_url = self._get_url_to_app_rest()
         if phantom.is_fail(ret_val):
