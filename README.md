@@ -353,7 +353,7 @@ VARIABLE | REQUIRED | TYPE | DESCRIPTION
 **scopes** |  optional  | string | OAuth API Scope (JSON formatted list)
 **folder** |  optional  | string | Folder to ingest mails from (default is inbox)
 **ingest_manner** |  required  | string | How to ingest
-**first_run_max_emails** |  required  | numeric | Maximum emails to poll first time for schedule polling
+**first_run_max_emails** |  required  | numeric | Maximum emails to poll first time for schedule and interval polling
 **max_emails** |  required  | numeric | Maximum emails to poll
 **use_ssl** |  optional  | boolean | Use SSL
 **extract_attachments** |  optional  | boolean | Extract Attachments
