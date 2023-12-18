@@ -787,6 +787,10 @@ class ProcessEmail(object):
                             self._debug_print("Email body caused unicode exception. Encoding as base64.")
                             payload = base64.b64encode(payload)
                             cef_artifact['body_base64encoded'] = True
+                        if not payload:
+                            payload = None
+                        if not cur_part['Content-Type']:
+                            cur_part['Content-Type'] = None
                         cef_artifact.update({'bodyPart{}'.format(i): payload})
                         cef_artifact.update({'bodyPart{}ContentType'.format(i): cur_part['Content-Type']})
                         i += 1

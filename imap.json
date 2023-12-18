@@ -103,7 +103,7 @@
         "first_run_max_emails": {
             "data_type": "numeric",
             "order": 12,
-            "description": "Maximum emails to poll first time for schedule polling",
+            "description": "Maximum emails to poll first time for schedule and interval polling",
             "default": 2000,
             "required": true
         },

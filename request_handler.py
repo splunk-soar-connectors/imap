@@ -133,8 +133,6 @@ class RequestStateHandler:
             if connector:
                 connector.error_print("Error occurred while deleting state file: {}".format(str(ex)))
 
-        return True
-
     def encrypt_state(self, state, connector=None):
         if state.get("is_encrypted"):
             return state

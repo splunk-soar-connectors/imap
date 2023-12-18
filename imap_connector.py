@@ -264,6 +264,7 @@ class ImapConnector(BaseConnector):
 
         if client_id != self._state.get('client_id', ''):
             self._state['oauth_token']['refresh_token'] = None
+            self._state['oauth_token']['access_token'] = None
             return phantom.APP_ERROR, "Client ID has been changed. Please run Test Connectivity again."
 
         refresh_token = oauth_token['refresh_token']
@@ -766,9 +767,9 @@ class ImapConnector(BaseConnector):
             # if fips is not enabled, we should continue with our existing md5 usage for generating hashes
             # to not impact existing customers
             if not fips_enabled:
-                folder = hashlib.md5(folder.encode())
+                folder = hashlib.md5(folder)
             else:
-                folder = hashlib.sha256(folder.encode())
+                folder = hashlib.sha256(folder)
             folder = folder.hexdigest()
 
         mail = email.message_from_string(email_data)
