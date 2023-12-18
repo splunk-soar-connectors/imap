@@ -766,6 +766,9 @@ class ImapConnector(BaseConnector):
             fips_enabled = self._get_fips_enabled()
             # if fips is not enabled, we should continue with our existing md5 usage for generating hashes
             # to not impact existing customers
+            if sys.version_info[0] == 3:
+                folder = folder.encode()
+
             if not fips_enabled:
                 folder = hashlib.md5(folder)
             else:
