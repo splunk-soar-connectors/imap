@@ -16,7 +16,7 @@
     "fips_compliant": true,
     "latest_tested_versions": [
         "On-premise Outlook Web Access v14.3.301.0, Mailbox server Microsoft Exchange v14.3.123.0",
-        "OAuth, Gmail October 10, 2023"
+        "OAuth, Gmail December 12, 2023"
     ],
     "python_version": "3",
     "logo": "logo_splunk.svg",
