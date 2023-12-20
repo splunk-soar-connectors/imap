@@ -1,4 +1,1 @@
 **Unreleased**
-* Updated flow for fetching email uuids using imap client for 'on poll' action [PAPP-29847]
-* Added encryption for the sensitive values stored in the state file
-* Added 'bodyPart-ContentType' cef field for allowing users to keep track of each 'ContentType' available in email's body part
