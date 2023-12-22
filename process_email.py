@@ -576,8 +576,7 @@ class ProcessEmail(object):
                     new_file_name = "ph_long_file_name_temp"
                     file_path = "{}{}".format(
                         self.remove_child_info(file_path).rstrip(file_name.replace('<', '').replace('>', '').replace(' ', '')), new_file_name)
-                    self._debug_print("Original filename: {}".format(
-                        self._base_connector._handle_py_ver_compat_for_input_str(file_name)))
+                    self._debug_print("Original filename: {}".format(file_name))
                     self._debug_print("Modified filename: {}".format(new_file_name))
                     with open(file_path, 'wb') as long_file:
                         long_file.write(part_payload)
@@ -768,11 +767,12 @@ class ProcessEmail(object):
                         queue.extend(payload)
                     else:
                         encoding = cur_part['Content-Transfer-Encoding']
-                        if encoding and 'base64' in encoding.lower():
-                            payload = base64.b64decode(''.join(payload.splitlines()))
-                        elif encoding != '8bit':
-                            payload = cur_part.get_payload(decode=True)
-                            payload = UnicodeDammit(payload).unicode_markup.encode('utf-8').decode('utf-8')
+                        if encoding:
+                            if 'base64' in encoding.lower():
+                                payload = base64.b64decode(''.join(payload.splitlines()))
+                            elif encoding != '8bit':
+                                payload = cur_part.get_payload(decode=True)
+                                payload = UnicodeDammit(payload).unicode_markup.encode('utf-8').decode('utf-8')
                         try:
                             json.dumps({'body': payload})
                         except TypeError:  # py3
@@ -787,7 +787,10 @@ class ProcessEmail(object):
                             self._debug_print("Email body caused unicode exception. Encoding as base64.")
                             payload = base64.b64encode(payload)
                             cef_artifact['body_base64encoded'] = True
-                        cef_artifact.update({'bodyPart{}'.format(i): payload})
+
+                        cef_artifact.update({'bodyPart{}'.format(i): payload if payload else None})
+                        cef_artifact.update({'bodyPart{}ContentType'
+                                            .format(i): cur_part['Content-Type'] if cur_part['Content-Type'] else None})
                         i += 1
 
         # Adding the email id as a cef artifact crashes the UI when trying to show the action dialog box
