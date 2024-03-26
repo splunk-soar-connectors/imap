@@ -2,7 +2,7 @@
 # IMAP
 
 Publisher: Splunk  
-Connector Version: 3.4.0  
+Connector Version: 3.4.1  
 Product Vendor: Generic  
 Product Name: IMAP  
 Product Version Supported (regex): ".\*"  
