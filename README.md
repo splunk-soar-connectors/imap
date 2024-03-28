@@ -2,7 +2,7 @@
 # IMAP
 
 Publisher: Splunk  
-Connector Version: 3.4.0  
+Connector Version: 3.4.1  
 Product Vendor: Generic  
 Product Name: IMAP  
 Product Version Supported (regex): ".\*"  
@@ -11,7 +11,7 @@ Minimum Product Version: 6.1.1
 This app supports email ingestion and various investigative actions over IMAP
 
 [comment]: # " File: README.md"
-[comment]: # "  Copyright (c) 2016-2023 Splunk Inc."
+[comment]: # "  Copyright (c) 2016-2024 Splunk Inc."
 [comment]: # ""
 [comment]: # "Licensed under the Apache License, Version 2.0 (the 'License');"
 [comment]: # "you may not use this file except in compliance with the License."
