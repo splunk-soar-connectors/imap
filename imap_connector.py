@@ -576,8 +576,6 @@ class ImapConnector(BaseConnector):
 
         # query for the whole email body
         try:
-            (result, data) = self._imap_conn.uid('fetch', muuid, "(INTERNALDATE RFC822)")
-        except TypeError:  # py3
             (result, data) = self._imap_conn.uid('fetch', str(muuid), "(INTERNALDATE RFC822)")
         except Exception as e:
             error_text = self._get_error_message_from_exception(e)
@@ -641,27 +639,33 @@ class ImapConnector(BaseConnector):
         return self._parse_email(muuid, email_data, data_time_info)
 
     def _get_email_ids_to_process(self, max_emails, lower_id, manner):
+        uids = []
+        left_id = lower_id
+        while len(uids) < max_emails:
+            try:
+                # Method to fetch all UIDs
+                self.debug_print("fetching ids from {}".format(left_id))
+                result, data = self._imap_conn.uid('search', None, "UID {}:{}".format(str(left_id), str(left_id + IMAP_TOTAL_IDS_TO_FETCH)))
+            except Exception as e:
+                error_text = self._get_error_message_from_exception(e)
+                message = "Failed to get latest email ids. Message: {0}".format(error_text)
+                return phantom.APP_ERROR, message, None
+            if result != 'OK':
+                message = "Failed to get latest email ids. Server response: {0}".format(data)
+                return phantom.APP_ERROR, message, None
 
-        try:
-            # Method to fetch all UIDs
-            result, data = self._imap_conn.uid('search', None, "UID {}:*".format(str(lower_id)))
-        except Exception as e:
-            error_text = self._get_error_message_from_exception(e)
-            message = "Failed to get latest email ids. Message: {0}".format(error_text)
-            return phantom.APP_ERROR, message, None
+            if not data or not data[0]:
+                self.debug_print("Empty data")
+                break
 
-        if result != 'OK':
-            message = "Failed to get latest email ids. Server response: {0}".format(data)
-            return phantom.APP_ERROR, message, None
+            uids.extend(data[0].split())
+            left_id = int(uids[-1]) + 1
 
-        if not data:
-            return phantom.APP_SUCCESS, "Empty data", None
+        if not uids:
+            return phantom.APP_SUCCESS, "No email ids available for given lower id: {}".format(lower_id), None
 
         # get the UIDs
-        uids = [int(uid) for uid in data[0].split()]
-
-        if len(uids) == 1 and uids[0] < lower_id:
-            return phantom.APP_SUCCESS, "Empty UID list when greater than lower_id: {0}".format(lower_id), None
+        uids = [int(uid) for uid in uids]
 
         # sort it
         uids.sort()
@@ -825,11 +829,8 @@ class ImapConnector(BaseConnector):
         self.save_progress("POLL NOW Getting {0} most recent email uid(s)".format(max_emails))
         ret_val, ret_msg, email_ids = self._get_email_ids_to_process(max_emails, 1, config[IMAP_JSON_INGEST_MANNER])
 
-        if phantom.is_fail(ret_val):
+        if phantom.is_fail(ret_val) or not email_ids:
             return action_result.set_status(ret_val, ret_msg)
-
-        if not email_ids:
-            return action_result.set_status(phantom.APP_SUCCESS)
 
         if len(email_ids) != max_emails:
             self.save_progress("Got {0} recent emails".format(len(email_ids)))
@@ -856,7 +857,9 @@ class ImapConnector(BaseConnector):
         if self.is_poll_now():
             return self._poll_now(action_result, param)
 
-        lower_id = self._state.get('next_muid', 1)
+        lower_id = self.validate_integers(action_result, self._state.get('next_muid', 1), "lower_id")
+        if not lower_id:
+            return action_result.get_status()
 
         # Get the maximum number of emails that we can pull
         config = self.get_config()
@@ -874,11 +877,8 @@ class ImapConnector(BaseConnector):
         ret_val, ret_msg, email_ids = self._get_email_ids_to_process(max_emails, lower_id,
                                                                      config[IMAP_JSON_INGEST_MANNER])
 
-        if phantom.is_fail(ret_val):
+        if phantom.is_fail(ret_val) or not email_ids:
             return action_result.set_status(ret_val, ret_msg)
-
-        if not email_ids:
-            return action_result.set_status(phantom.APP_SUCCESS)
 
         for i, email_id in enumerate(email_ids):
             self.send_progress("Parsing email uid: {0}".format(email_id))

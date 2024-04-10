@@ -74,6 +74,7 @@ IMAP_STATE_FILE_CORRUPT_ERROR = "Error occurred while loading the state file due
 IMAP_ENCRYPTION_ERROR = "Error occurred while encrypting the state file"
 IMAP_DECRYPTION_ERROR = "Error occurred while decrypting the state file"
 
+IMAP_TOTAL_IDS_TO_FETCH = 10000
 IMAP_MILLISECONDS_IN_A_DAY = 86400000
 IMAP_NUMBER_OF_DAYS_BEFORE_ENDTIME = 10
 IMAP_CONTENT_TYPE_MESSAGE = "message/rfc822"
