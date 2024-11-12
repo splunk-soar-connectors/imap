@@ -29,7 +29,7 @@ def handle_request(request, path_parts):
 
 
 def _get_dir_name_from_app_name(app_name):
-    app_name = ''.join([x for x in app_name if x.isalnum()])
+    app_name = "".join([x for x in app_name if x.isalnum()])
     app_name = app_name.lower()
     if not app_name:
         app_name = "app_for_phantom"
@@ -44,24 +44,24 @@ class IMAPRequestHandler:
 
     def _return_error(self, error_msg, status):
         state = self._rsh.load_app_state()
-        state['error'] = True
+        state["error"] = True
         self._rsh.save_app_state(state)
         return HttpResponse(error_msg, status=status, content_type="text/plain")
 
     def _get_oauth_token(self, code):
         state = self._rsh.load_app_state()
-        client_id = state['client_id']
-        redirect_uri = state['redirect_url']
-        client_secret = base64.b64decode(state['client_secret']).decode()
-        proxy = state['proxy']
-        token_url = state['token_url']
+        client_id = state["client_id"]
+        redirect_uri = state["redirect_url"]
+        client_secret = base64.b64decode(state["client_secret"]).decode()
+        proxy = state["proxy"]
+        token_url = state["token_url"]
 
         body = {
-            'grant_type': 'authorization_code',
-            'redirect_uri': redirect_uri,
-            'client_id': client_id,
-            'code': code,
-            'client_secret': client_secret
+            "grant_type": "authorization_code",
+            "redirect_uri": redirect_uri,
+            "client_id": client_id,
+            "code": code,
+            "client_secret": client_secret,
         }
 
         try:
@@ -69,12 +69,9 @@ class IMAPRequestHandler:
             r.raise_for_status()
             resp_json = r.json()
         except Exception as e:
-            return False, self._return_error(
-                "Error retrieving OAuth Token: {}".format(str(e)),
-                401
-            )
-        state['oauth_token'] = resp_json
-        state['is_encrypted'] = False
+            return False, self._return_error("Error retrieving OAuth Token: {}".format(str(e)), 401)
+        state["oauth_token"] = resp_json
+        state["is_encrypted"] = False
         self._rsh.save_app_state(state)
 
         return True, None
@@ -83,17 +80,17 @@ class IMAPRequestHandler:
         try:
             GET = self._request.GET
 
-            asset_id = GET.get('state')
+            asset_id = GET.get("state")
             self._rsh = RequestStateHandler(asset_id)
             if not self._rsh.is_valid_asset_id(asset_id):
                 return self._return_error("Invalid asset id provided", 401)
 
-            error = GET.get('error')
+            error = GET.get("error")
             if error:
-                error_msg = GET.get('error_description')
+                error_msg = GET.get("error_description")
                 return self._return_error(error_msg, 401)
 
-            code = GET.get('code')
+            code = GET.get("code")
             ret_val, http_object = self._get_oauth_token(code)
 
             if ret_val is False:
@@ -115,7 +112,7 @@ class RequestStateHandler:
 
     @staticmethod
     def is_valid_asset_id(asset_id):
-        """ This function validates an asset id.
+        """This function validates an asset id.
         Must be an alphanumeric string of less than 128 characters.
 
         :param asset_id: asset_id
@@ -139,16 +136,14 @@ class RequestStateHandler:
 
         try:
             if state.get("oauth_token") and state.get("oauth_token", {}).get("access_token"):
-                state["oauth_token"]["access_token"] = encryption_helper.encrypt(
-                    state["oauth_token"]["access_token"], self._asset_id)
+                state["oauth_token"]["access_token"] = encryption_helper.encrypt(state["oauth_token"]["access_token"], self._asset_id)
         except Exception as ex:
             if connector:
                 connector.error_print("{}: {}".format(IMAP_ENCRYPTION_ERROR, str(ex)))
 
         try:
             if state.get("oauth_token") and state.get("oauth_token", {}).get("refresh_token"):
-                state["oauth_token"]["refresh_token"] = encryption_helper.encrypt(
-                    state["oauth_token"]["refresh_token"], self._asset_id)
+                state["oauth_token"]["refresh_token"] = encryption_helper.encrypt(state["oauth_token"]["refresh_token"], self._asset_id)
         except Exception as ex:
             if connector:
                 connector.error_print("{}: {}".format(IMAP_ENCRYPTION_ERROR, str(ex)))
@@ -160,10 +155,7 @@ class RequestStateHandler:
             return state
         try:
             if state.get("oauth_token") and state.get("oauth_token", {}).get("access_token"):
-                state["oauth_token"]["access_token"] = encryption_helper.decrypt(
-                    state["oauth_token"]["access_token"],
-                    self._asset_id
-                )
+                state["oauth_token"]["access_token"] = encryption_helper.decrypt(state["oauth_token"]["access_token"], self._asset_id)
         except Exception as ex:
             state["oauth_token"]["access_token"] = None
             if connector:
@@ -171,10 +163,7 @@ class RequestStateHandler:
 
         try:
             if state.get("oauth_token") and state.get("oauth_token", {}).get("refresh_token"):
-                state["oauth_token"]["refresh_token"] = encryption_helper.decrypt(
-                    state["oauth_token"]["refresh_token"],
-                    self._asset_id
-                )
+                state["oauth_token"]["refresh_token"] = encryption_helper.decrypt(state["oauth_token"]["refresh_token"], self._asset_id)
         except Exception as ex:
             state["oauth_token"]["refresh_token"] = None
             if connector:
@@ -188,7 +177,7 @@ class RequestStateHandler:
         state = self.encrypt_state(state, connector)
         state_file = self._get_state_file()
         try:
-            with open(state_file, 'w+') as fp:
+            with open(state_file, "w+") as fp:
                 fp.write(json.dumps(state))
         except Exception as ex:
             if connector:
@@ -200,7 +189,7 @@ class RequestStateHandler:
         state_file = self._get_state_file()
         state = {}
         try:
-            with open(state_file, 'r') as fp:
+            with open(state_file, "r") as fp:
                 in_json = fp.read()
                 state = json.loads(in_json)
         except Exception as ex:
