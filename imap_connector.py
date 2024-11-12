@@ -622,7 +622,11 @@ class ImapConnector(BaseConnector):
             return action_result.set_status(phantom.APP_ERROR, error_message), email_data, data_time_info
 
         # parse the email body into an object, we've ALREADY VALIDATED THAT DATA[0] CONTAINS >= 2 ITEMS
-        email_data = data[0][1].decode('UTF-8')
+        try:
+            email_data = data[0][1].decode('UTF-8')
+        except UnicodeDecodeError:
+            # If UTF-8 fails use latin1 which will always work
+            email_data = data[0][1].decode('latin1')
         data_time_info = data[0][0].decode('UTF-8')
 
         return phantom.APP_SUCCESS, email_data, data_time_info
