@@ -1,3 +1,1 @@
 **Unreleased**
-
-* Ingestion fix to handle email with non UTF-8 content [PAPP-35075]
