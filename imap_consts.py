@@ -69,8 +69,10 @@ IMAP_EXCEPTION_ERROR_MESSAGE = "Error Code: {0}. Error Message: {1}"
 IMAP_REQUIRED_PARAM_OAUTH = "ERROR: {0} is a required parameter for OAuth Authentication, please specify one."
 IMAP_REQUIRED_PARAM_BASIC = "ERROR: {0} is a required parameter for Basic Authentication, please specify one."
 IMAP_GENERAL_ERROR_MESSAGE = "{}. Details: {}"
-IMAP_STATE_FILE_CORRUPT_ERROR = "Error occurred while loading the state file due to its unexpected format. " \
+IMAP_STATE_FILE_CORRUPT_ERROR = (
+    "Error occurred while loading the state file due to its unexpected format. "
     "Resetting the state file with the default format. Please try again."
+)
 IMAP_ENCRYPTION_ERROR = "Error occurred while encrypting the state file"
 IMAP_DECRYPTION_ERROR = "Error occurred while decrypting the state file"
 
