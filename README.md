@@ -2,11 +2,11 @@
 # IMAP
 
 Publisher: Splunk  
-Connector Version: 3.4.1  
+Connector Version: 3.4.2  
 Product Vendor: Generic  
 Product Name: IMAP  
 Product Version Supported (regex): ".\*"  
-Minimum Product Version: 6.1.1  
+Minimum Product Version: 6.3.0  
 
 This app supports email ingestion and various investigative actions over IMAP
 

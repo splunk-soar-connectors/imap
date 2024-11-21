@@ -59,7 +59,7 @@ class ImapConnector(BaseConnector):
         self._asset_id = None
 
     def _get_error_message_from_exception(self, e):
-        """ This method is used to get appropriate error message from the exception.
+        """This method is used to get appropriate error message from the exception.
         :param e: Exception object
         :return: error message
         """
@@ -88,7 +88,7 @@ class ImapConnector(BaseConnector):
 
     @staticmethod
     def validate_integers(action_result, parameter, key, allow_zero=False):
-        """ This method is to check if the provided input parameter value
+        """This method is to check if the provided input parameter value
         is a non-zero positive integer and returns the integer value of the parameter itself.
         :param allow_zero: allowing zeros for integers
         :param key: parameter name
@@ -107,12 +107,10 @@ class ImapConnector(BaseConnector):
             return None
 
         if parameter < 0:
-            action_result.set_status(phantom.APP_ERROR, "Please provide a valid non-negative integer value in the {} "
-                                                        "parameter".format(key))
+            action_result.set_status(phantom.APP_ERROR, "Please provide a valid non-negative integer value in the {} " "parameter".format(key))
             return None
         if not allow_zero and parameter == 0:
-            action_result.set_status(phantom.APP_ERROR, "Please provide a positive integer value in the {} "
-                                                        "parameter".format(key))
+            action_result.set_status(phantom.APP_ERROR, "Please provide a positive integer value in the {} " "parameter".format(key))
             return None
 
         return parameter
@@ -121,11 +119,10 @@ class ImapConnector(BaseConnector):
 
         r = requests.get(url, verify=verify, timeout=DEFAULT_REQUEST_TIMEOUT)
         if not r:
-            message = 'Status Code: {0}'.format(r.status_code)
+            message = "Status Code: {0}".format(r.status_code)
             if r.text:
-                message = "{} Error from Server: {}".format(message, r.text.replace('{', '{{').replace('}', '}}'))
-            return action_result.set_status(phantom.APP_ERROR, "Error retrieving system info, "
-                                                               "{0}".format(message)), None
+                message = "{} Error from Server: {}".format(message, r.text.replace("{", "{{").replace("}", "}}"))
+            return action_result.set_status(phantom.APP_ERROR, "Error retrieving system info, " "{0}".format(message)), None
 
         try:
             resp_json = r.json()
@@ -136,16 +133,17 @@ class ImapConnector(BaseConnector):
 
     def _get_phantom_base_url_imap(self, action_result):
 
-        ret_val, resp_json = self.make_rest_call(action_result,
-                                                 '{}rest/system_info'.format(self.get_phantom_base_url()))
+        ret_val, resp_json = self.make_rest_call(action_result, "{}rest/system_info".format(self.get_phantom_base_url()))
 
         if phantom.is_fail(ret_val):
             return action_result.get_status(), None
 
-        phantom_base_url = resp_json.get('base_url')
+        phantom_base_url = resp_json.get("base_url")
         if not phantom_base_url:
-            return action_result.set_status(
-                phantom.APP_ERROR, "Phantom Base URL is not configured, please configure it in System Settings"), None
+            return (
+                action_result.set_status(phantom.APP_ERROR, "Phantom Base URL is not configured, please configure it in System Settings"),
+                None,
+            )
 
         phantom_base_url = phantom_base_url.strip("/")
 
@@ -153,13 +151,12 @@ class ImapConnector(BaseConnector):
 
     def _get_asset_name(self, action_result):
 
-        ret_val, resp_json = self.make_rest_call(
-            action_result, '{}rest/asset/{}'.format(self.get_phantom_base_url(), self.get_asset_id()))
+        ret_val, resp_json = self.make_rest_call(action_result, "{}rest/asset/{}".format(self.get_phantom_base_url(), self.get_asset_id()))
 
         if phantom.is_fail(ret_val):
             return action_result.get_status(), None
 
-        asset_name = resp_json.get('name')
+        asset_name = resp_json.get("name")
         if not asset_name:
             return action_result.set_status(phantom.APP_ERROR, "Error retrieving asset name"), None
 
@@ -176,12 +173,11 @@ class ImapConnector(BaseConnector):
         ret_val, asset_name = self._get_asset_name(action_result)
         if phantom.is_fail(ret_val):
             return action_result.get_status(), action_result.get_message()
-        self.save_progress('Using Phantom base URL as: {0}'.format(phantom_base_url))
+        self.save_progress("Using Phantom base URL as: {0}".format(phantom_base_url))
         app_json = self.get_app_json()
-        app_name = app_json['name']
+        app_name = app_json["name"]
         app_dir_name = _get_dir_name_from_app_name(app_name)
-        url_to_app_rest = "{0}/rest/handler/{1}_{2}/{3}".format(phantom_base_url, app_dir_name, app_json['appid'],
-                                                                asset_name)
+        url_to_app_rest = "{0}/rest/handler/{1}_{2}/{3}".format(phantom_base_url, app_dir_name, app_json["appid"], asset_name)
         return phantom.APP_SUCCESS, url_to_app_rest
 
     def _interactive_auth_initial(self, client_id, client_secret):
@@ -197,37 +193,37 @@ class ImapConnector(BaseConnector):
 
         # set proxy if configured
         proxy = {}
-        if 'HTTP_PROXY' in os.environ:
-            proxy['http'] = os.environ.get('HTTP_PROXY')
-        if 'HTTPS_PROXY' in os.environ:
-            proxy['https'] = os.environ.get('HTTPS_PROXY')
-        state['proxy'] = proxy
+        if "HTTP_PROXY" in os.environ:
+            proxy["http"] = os.environ.get("HTTP_PROXY")
+        if "HTTPS_PROXY" in os.environ:
+            proxy["https"] = os.environ.get("HTTPS_PROXY")
+        state["proxy"] = proxy
 
-        state['client_id'] = client_id
-        state['redirect_url'] = app_rest_url
-        state['request_url'] = request_url
-        state['token_url'] = config.get("token_url")
-        state['client_secret'] = base64.b64encode(client_secret.encode()).decode()
+        state["client_id"] = client_id
+        state["redirect_url"] = app_rest_url
+        state["request_url"] = request_url
+        state["token_url"] = config.get("token_url")
+        state["client_secret"] = base64.b64encode(client_secret.encode()).decode()
 
         self._rsh.save_app_state(state, self)
         self.save_progress("Redirect URI: {}".format(app_rest_url))
         params = {
-            'response_type': 'code',
-            'client_id': client_id,
-            'state': self._asset_id,
-            'redirect_uri': app_rest_url,
+            "response_type": "code",
+            "client_id": client_id,
+            "state": self._asset_id,
+            "redirect_uri": app_rest_url,
             "access_type": "offline",
-            "prompt": "consent"
+            "prompt": "consent",
         }
-        if config.get('scopes'):
+        if config.get("scopes"):
             try:
-                scopes = json.loads(config['scopes'])
+                scopes = json.loads(config["scopes"])
             except Exception:
                 return phantom.APP_ERROR, "Please provide API scope in valid json format"
-            params['scope'] = scopes
+            params["scope"] = scopes
         try:
-            url = requests.Request('GET', request_url, params=params).prepare().url
-            url = '{}&'.format(url)
+            url = requests.Request("GET", request_url, params=params).prepare().url
+            url = "{}&".format(url)
         except Exception as ex:
             message = self._get_error_message_from_exception(ex)
             return phantom.APP_ERROR, message
@@ -239,15 +235,15 @@ class ImapConnector(BaseConnector):
             time.sleep(5)
             self.save_progress("." * i)
             state = self._rsh.load_app_state(self, decrypt=False)
-            oauth_token = state.get('oauth_token')
+            oauth_token = state.get("oauth_token")
             if oauth_token:
                 break
-            elif state.get('error'):
+            elif state.get("error"):
                 return phantom.APP_ERROR, "Error retrieving OAuth token"
         else:
             return phantom.APP_ERROR, "Timed out waiting for login"
-        self._state['oauth_token'] = self._rsh.load_app_state(self).get('oauth_token')
-        self._state['is_encrypted'] = False
+        self._state["oauth_token"] = self._rsh.load_app_state(self).get("oauth_token")
+        self._state["is_encrypted"] = False
         self.save_state()
         self._state = self.load_state()
         return phantom.APP_SUCCESS, ""
@@ -258,24 +254,19 @@ class ImapConnector(BaseConnector):
         client_id = config.get("client_id")
         client_secret = config.get("client_secret")
 
-        oauth_token = self._state.get('oauth_token', {})
+        oauth_token = self._state.get("oauth_token", {})
         if not oauth_token.get("refresh_token"):
             return phantom.APP_ERROR, "Unable to get refresh token. Has Test Connectivity been run?"
 
-        if client_id != self._state.get('client_id', ''):
-            self._state['oauth_token']['refresh_token'] = None
-            self._state['oauth_token']['access_token'] = None
+        if client_id != self._state.get("client_id", ""):
+            self._state["oauth_token"]["refresh_token"] = None
+            self._state["oauth_token"]["access_token"] = None
             return phantom.APP_ERROR, "Client ID has been changed. Please run Test Connectivity again."
 
-        refresh_token = oauth_token['refresh_token']
+        refresh_token = oauth_token["refresh_token"]
 
         request_url = config.get("token_url")
-        body = {
-            'grant_type': 'refresh_token',
-            'client_id': client_id,
-            'refresh_token': refresh_token,
-            'client_secret': client_secret
-        }
+        body = {"grant_type": "refresh_token", "client_id": client_id, "refresh_token": refresh_token, "client_secret": client_secret}
         try:
             r = requests.post(request_url, data=body, timeout=DEFAULT_REQUEST_TIMEOUT)
         except Exception as e:
@@ -290,8 +281,8 @@ class ImapConnector(BaseConnector):
         except Exception:
             return phantom.APP_ERROR, "Error retrieving OAuth Token"
 
-        self._state['oauth_token'] = oauth_token
-        self._state['is_encrypted'] = False
+        self._state["oauth_token"] = oauth_token
+        self._state["is_encrypted"] = False
         self.save_state()
         self._state = self.load_state()
         return phantom.APP_SUCCESS, ""
@@ -303,8 +294,8 @@ class ImapConnector(BaseConnector):
         client_secret = config.get("client_secret")
 
         if self.get_action_identifier() != phantom.ACTION_ID_TEST_ASSET_CONNECTIVITY:
-            if self._state.get('oauth_token'):
-                if not self._state.get('oauth_token', {}).get('access_token'):
+            if self._state.get("oauth_token"):
+                if not self._state.get("oauth_token", {}).get("access_token"):
                     # try to regenerate the token from refresh token
                     self.debug_print("Access token is not available, try to generate token from refresh token")
                     ret_val, messasge = self._interactive_auth_refresh()
@@ -324,7 +315,7 @@ class ImapConnector(BaseConnector):
             if phantom.is_fail(ret_val):
                 return phantom.APP_ERROR, message
 
-            self._state['client_id'] = client_id
+            self._state["client_id"] = client_id
 
             ret_val = self._connect_to_server(action_result)
             if phantom.is_fail(ret_val):
@@ -384,7 +375,7 @@ class ImapConnector(BaseConnector):
         Returns:
             The SASL argument for the OAuth2 mechanism.
         """
-        auth_string = 'user=%s\1auth=Bearer %s\1\1' % (username, access_token)
+        auth_string = "user=%s\1auth=Bearer %s\1\1" % (username, access_token)
         return auth_string
 
     def _connect_to_server_helper(self, action_result):
@@ -418,20 +409,17 @@ class ImapConnector(BaseConnector):
                 self._imap_conn = imaplib.IMAP4(server)
         except Exception as e:
             error_text = self._get_error_message_from_exception(e)
-            return action_result.set_status(phantom.APP_ERROR, IMAP_GENERAL_ERROR_MESSAGE.format(
-                IMAP_ERROR_CONNECTING_TO_SERVER, error_text))
+            return action_result.set_status(phantom.APP_ERROR, IMAP_GENERAL_ERROR_MESSAGE.format(IMAP_ERROR_CONNECTING_TO_SERVER, error_text))
 
         self.save_progress(IMAP_CONNECTED_TO_SERVER)
 
         # Login
         try:
             if is_oauth:
-                auth_string = self._generate_oauth_string(config[phantom.APP_JSON_USERNAME],
-                                                          self._state['oauth_token']['access_token'])
-                result, data = self._imap_conn.authenticate('XOAUTH2', lambda _: auth_string)
+                auth_string = self._generate_oauth_string(config[phantom.APP_JSON_USERNAME], self._state["oauth_token"]["access_token"])
+                result, data = self._imap_conn.authenticate("XOAUTH2", lambda _: auth_string)
             else:
-                result, data = self._imap_conn.login(config[phantom.APP_JSON_USERNAME],
-                                                     config[phantom.APP_JSON_PASSWORD])
+                result, data = self._imap_conn.login(config[phantom.APP_JSON_USERNAME], config[phantom.APP_JSON_PASSWORD])
         except Exception as e:
             error_text = self._get_error_message_from_exception(e)
             # If token is expired, use the refresh token to re-new the access token
@@ -441,10 +429,9 @@ class ImapConnector(BaseConnector):
                 if phantom.is_fail(ret_val):
                     return action_result.set_status(phantom.APP_ERROR, message)
                 return self._connect_to_server(action_result, False)
-            return action_result.set_status(phantom.APP_ERROR, IMAP_GENERAL_ERROR_MESSAGE.format(
-                IMAP_ERROR_LOGGING_IN_TO_SERVER, error_text))
+            return action_result.set_status(phantom.APP_ERROR, IMAP_GENERAL_ERROR_MESSAGE.format(IMAP_ERROR_LOGGING_IN_TO_SERVER, error_text))
 
-        if result != 'OK':
+        if result != "OK":
             self.debug_print("Logging in error, result: {0} data: {1}".format(result, data))
             return action_result.set_status(phantom.APP_ERROR, IMAP_ERROR_LOGGING_IN_TO_SERVER)
 
@@ -455,23 +442,22 @@ class ImapConnector(BaseConnector):
             result, data = self._imap_conn.list()
         except Exception as e:
             error_text = self._get_error_message_from_exception(e)
-            return action_result.set_status(phantom.APP_ERROR,
-                                            IMAP_GENERAL_ERROR_MESSAGE.format(IMAP_ERROR_LISTING_FOLDERS, error_text))
+            return action_result.set_status(phantom.APP_ERROR, IMAP_GENERAL_ERROR_MESSAGE.format(IMAP_ERROR_LISTING_FOLDERS, error_text))
 
         self.save_progress(IMAP_GOT_LIST_FOLDERS)
 
-        self._folder_name = config.get(IMAP_JSON_FOLDER, 'inbox')
+        self._folder_name = config.get(IMAP_JSON_FOLDER, "inbox")
         try:
             result, data = self._imap_conn.select('"{}"'.format(imap_utf7.encode(self._folder_name).decode()), True)
         except Exception as e:
             error_text = self._get_error_message_from_exception(e)
-            return action_result.set_status(phantom.APP_ERROR, IMAP_GENERAL_ERROR_MESSAGE.format(
-                IMAP_ERROR_SELECTING_FOLDER.format(folder=self._folder_name), error_text))
+            return action_result.set_status(
+                phantom.APP_ERROR, IMAP_GENERAL_ERROR_MESSAGE.format(IMAP_ERROR_SELECTING_FOLDER.format(folder=self._folder_name), error_text)
+            )
 
-        if result != 'OK':
+        if result != "OK":
             self.debug_print("Error selecting folder, result: {0} data: {1}".format(result, data))
-            return action_result.set_status(phantom.APP_ERROR, IMAP_ERROR_SELECTING_FOLDER.format(
-                folder=self._folder_name))
+            return action_result.set_status(phantom.APP_ERROR, IMAP_ERROR_SELECTING_FOLDER.format(folder=self._folder_name))
 
         self.save_progress(IMAP_SELECTED_FOLDER.format(folder=self._folder_name))
 
@@ -488,9 +474,9 @@ class ImapConnector(BaseConnector):
 
         fips_enabled = is_fips_enabled()
         if fips_enabled:
-            self.debug_print('FIPS is enabled')
+            self.debug_print("FIPS is enabled")
         else:
-            self.debug_print('FIPS is not enabled')
+            self.debug_print("FIPS is not enabled")
         return fips_enabled
 
     def _parse_email(self, muuid, rfc822_email, date_time_info=None, config=None):
@@ -506,7 +492,7 @@ class ImapConnector(BaseConnector):
                 self.debug_print("parse failed on: {0}".format(date_time_info))
                 epoch = int(time.mktime(datetime.utcnow().timetuple())) * 1000
             else:
-                dt = parse_data['dt']
+                dt = parse_data["dt"]
                 if not dt:
                     self.debug_print("Unable to parse dt")
                     return phantom.APP_ERROR
@@ -536,20 +522,32 @@ class ImapConnector(BaseConnector):
         # Keep pylint happy
         resp_data = dict(resp_data)
 
-        email_data = resp_data.get('data', {}).get('raw_email')
-        email_id = resp_data['source_data_identifier'].split()
+        email_data = resp_data.get("data", {}).get("raw_email")
+        email_id = resp_data["source_data_identifier"].split()
         folder_name = email_id[0]
         email_id = email_id[-1]
 
         if not email_data:
-            return action_result.set_status(
-                phantom.APP_ERROR, "Container does not seem to be created from an IMAP email, raw_email data not found."), None, None, None
+            return (
+                action_result.set_status(
+                    phantom.APP_ERROR, "Container does not seem to be created from an IMAP email, raw_email data not found."
+                ),
+                None,
+                None,
+                None,
+            )
 
         try:
             email_id = int(email_id)
         except Exception:
-            return action_result.set_status(
-                phantom.APP_ERROR, "Container does not seem to be created from an IMAP email, email id not in proper format."), None, None, None
+            return (
+                action_result.set_status(
+                    phantom.APP_ERROR, "Container does not seem to be created from an IMAP email, email id not in proper format."
+                ),
+                None,
+                None,
+                None,
+            )
 
         return phantom.APP_SUCCESS, email_data, email_id, folder_name
 
@@ -563,67 +561,93 @@ class ImapConnector(BaseConnector):
                 result, data = self._imap_conn.select('"{}"'.format(imap_utf7.encode(folder).decode()), True)
             except Exception as e:
                 error_text = self._get_error_message_from_exception(e)
-                return action_result.set_status(phantom.APP_ERROR, IMAP_GENERAL_ERROR_MESSAGE.format(
-                    IMAP_ERROR_SELECTING_FOLDER.format(folder=folder),
-                    error_text)), email_data, data_time_info
+                return (
+                    action_result.set_status(
+                        phantom.APP_ERROR, IMAP_GENERAL_ERROR_MESSAGE.format(IMAP_ERROR_SELECTING_FOLDER.format(folder=folder), error_text)
+                    ),
+                    email_data,
+                    data_time_info,
+                )
 
-            if result != 'OK':
+            if result != "OK":
                 self.debug_print("Error selecting folder, result: {0} data: {1}".format(result, data))
-                return (action_result.set_status(phantom.APP_ERROR, IMAP_ERROR_SELECTING_FOLDER.format(
-                    folder=folder)), email_data, data_time_info)
+                return (
+                    action_result.set_status(phantom.APP_ERROR, IMAP_ERROR_SELECTING_FOLDER.format(folder=folder)),
+                    email_data,
+                    data_time_info,
+                )
 
             self.save_progress(IMAP_SELECTED_FOLDER.format(folder=folder))
 
         # query for the whole email body
         try:
-            (result, data) = self._imap_conn.uid('fetch', muuid, "(INTERNALDATE RFC822)")
+            (result, data) = self._imap_conn.uid("fetch", muuid, "(INTERNALDATE RFC822)")
         except TypeError:  # py3
-            (result, data) = self._imap_conn.uid('fetch', str(muuid), "(INTERNALDATE RFC822)")
+            (result, data) = self._imap_conn.uid("fetch", str(muuid), "(INTERNALDATE RFC822)")
         except Exception as e:
             error_text = self._get_error_message_from_exception(e)
-            return action_result.set_status(phantom.APP_ERROR, IMAP_FETCH_ID_FAILED.format(
-                muuid=muuid, excep=error_text)), email_data, data_time_info
+            return (
+                action_result.set_status(phantom.APP_ERROR, IMAP_FETCH_ID_FAILED.format(muuid=muuid, excep=error_text)),
+                email_data,
+                data_time_info,
+            )
 
-        if result != 'OK':
+        if result != "OK":
             self.save_progress(IMAP_FETCH_ID_FAILED_RESULT, muuid=muuid, result=result, data=data)
-            return (action_result.set_status(
-                phantom.APP_ERROR, IMAP_FETCH_ID_FAILED_RESULT.format(muuid=muuid, result=result, data=data)),
-                    email_data, data_time_info)
+            return (
+                action_result.set_status(phantom.APP_ERROR, IMAP_FETCH_ID_FAILED_RESULT.format(muuid=muuid, result=result, data=data)),
+                email_data,
+                data_time_info,
+            )
 
         if not data:
-            error_message = ("Data returned empty for {muuid} with result: {result} and data: {data}. Email ID "
-                             "possibly not present.").format(
-                muuid=muuid, result=result, data=data)
+            error_message = ("Data returned empty for {muuid} with result: {result} and data: {data}. Email ID " "possibly not present.").format(
+                muuid=muuid, result=result, data=data
+            )
             return action_result.set_status(phantom.APP_ERROR, error_message), email_data, data_time_info
 
         if not isinstance(data, list):
-            return action_result.set_status(
-                phantom.APP_ERROR,
-                "Data returned is not a list for {muuid} with result: {result} and data: {data}"
-                .format(muuid=muuid, result=result, data=data)
-            ), email_data, data_time_info
+            return (
+                action_result.set_status(
+                    phantom.APP_ERROR,
+                    "Data returned is not a list for {muuid} with result: {result} and data: {data}".format(
+                        muuid=muuid, result=result, data=data
+                    ),
+                ),
+                email_data,
+                data_time_info,
+            )
 
         if not data[0]:
-            error_message = ("Data[0] returned empty for {muuid} with result: {result} and data: {data}. "
-                             "Email ID possibly not present.").format(
-                muuid=muuid, result=result, data=data)
+            error_message = (
+                "Data[0] returned empty for {muuid} with result: {result} and data: {data}. " "Email ID possibly not present."
+            ).format(muuid=muuid, result=result, data=data)
             return action_result.set_status(phantom.APP_ERROR, error_message), email_data, data_time_info
 
         if not isinstance(data[0], tuple):
-            return action_result.set_status(
-                phantom.APP_ERROR,
-                "Data[0] returned is not a list for {muuid} with result: {result} and data: "
-                "{data}".format(muuid=muuid, result=result, data=data)
-            ), email_data, data_time_info
+            return (
+                action_result.set_status(
+                    phantom.APP_ERROR,
+                    "Data[0] returned is not a list for {muuid} with result: {result} and data: "
+                    "{data}".format(muuid=muuid, result=result, data=data),
+                ),
+                email_data,
+                data_time_info,
+            )
 
         if len(data[0]) < 2:
-            error_message = ("Data[0] does not contain all parts for {muuid} with result: {result} and data: {data}"
-                             .format(muuid=muuid, result=result, data=data))
+            error_message = "Data[0] does not contain all parts for {muuid} with result: {result} and data: {data}".format(
+                muuid=muuid, result=result, data=data
+            )
             return action_result.set_status(phantom.APP_ERROR, error_message), email_data, data_time_info
 
         # parse the email body into an object, we've ALREADY VALIDATED THAT DATA[0] CONTAINS >= 2 ITEMS
-        email_data = data[0][1].decode('UTF-8')
-        data_time_info = data[0][0].decode('UTF-8')
+        try:
+            email_data = data[0][1].decode("UTF-8")
+        except UnicodeDecodeError:
+            # If UTF-8 fails use latin1 which will always work
+            email_data = data[0][1].decode("latin1")
+        data_time_info = data[0][0].decode("UTF-8")
 
         return phantom.APP_SUCCESS, email_data, data_time_info
 
@@ -634,8 +658,7 @@ class ImapConnector(BaseConnector):
         ret_val, email_data, data_time_info = self._get_email_data(action_result, muuid, folder=None, is_diff=False)
 
         if phantom.is_fail(ret_val):
-            self.debug_print("Error in getting Email Data with id: {0}. Reason: {1}"
-                             .format(muuid, action_result.get_message()))
+            self.debug_print("Error in getting Email Data with id: {0}. Reason: {1}".format(muuid, action_result.get_message()))
             return action_result.get_status()
 
         return self._parse_email(muuid, email_data, data_time_info)
@@ -644,13 +667,13 @@ class ImapConnector(BaseConnector):
 
         try:
             # Method to fetch all UIDs
-            result, data = self._imap_conn.uid('search', None, "UID {}:*".format(str(lower_id)))
+            result, data = self._imap_conn.uid("search", None, "UID {}:*".format(str(lower_id)))
         except Exception as e:
             error_text = self._get_error_message_from_exception(e)
             message = "Failed to get latest email ids. Message: {0}".format(error_text)
             return phantom.APP_ERROR, message, None
 
-        if result != 'OK':
+        if result != "OK":
             message = "Failed to get latest email ids. Server response: {0}".format(data)
             return phantom.APP_ERROR, message, None
 
@@ -670,8 +693,7 @@ class ImapConnector(BaseConnector):
         max_emails = int(max_emails)
 
         if manner == IMAP_INGEST_LATEST_EMAILS:
-            self.save_progress("Getting {0} MOST RECENT emails uids since uid(inclusive) {1}"
-                               .format(max_emails, lower_id))
+            self.save_progress("Getting {0} MOST RECENT emails uids since uid(inclusive) {1}".format(max_emails, lower_id))
             # return the latest i.e. the rightmost items in the list
             return phantom.APP_SUCCESS, "", uids[-max_emails:]
 
@@ -681,7 +703,7 @@ class ImapConnector(BaseConnector):
 
     def _get_mail_header_dict(self, mail):
 
-        headers = mail.__dict__.get('_headers')
+        headers = mail.__dict__.get("_headers")
 
         if not headers:
             return {}
@@ -699,7 +721,8 @@ class ImapConnector(BaseConnector):
     def _get_container_id(self, email_id, folder, verify=False):
 
         url = '{0}/rest/container?_filter_source_data_identifier="{1} : {2}"&_filter_asset={3}'.format(
-                self._get_phantom_base_url().strip('/'), folder, email_id, self.get_asset_id())
+            self._get_phantom_base_url().strip("/"), folder, email_id, self.get_asset_id()
+        )
 
         try:
             r = requests.get(url, verify=verify, timeout=DEFAULT_REQUEST_TIMEOUT)
@@ -709,12 +732,12 @@ class ImapConnector(BaseConnector):
             self.debug_print("Unable to query Email container. {}".format(error_text))
             return None
 
-        if resp_json.get('count', 0) <= 0:
+        if resp_json.get("count", 0) <= 0:
             self.debug_print("No container matched")
             return None
 
         try:
-            container_id = resp_json.get('data', [])[0]['id']
+            container_id = resp_json.get("data", [])[0]["id"]
         except Exception as e:
             error_text = self._get_error_message_from_exception(e)
             self.debug_print("Container results, not proper", error_text)
@@ -730,16 +753,14 @@ class ImapConnector(BaseConnector):
         container_id = None
         folder = None
         if param.get(IMAP_JSON_CONTAINER_ID) is not None:
-            container_id = self.validate_integers(action_result, param.get(IMAP_JSON_CONTAINER_ID),
-                                                  IMAP_JSON_CONTAINER_ID)
+            container_id = self.validate_integers(action_result, param.get(IMAP_JSON_CONTAINER_ID), IMAP_JSON_CONTAINER_ID)
             if container_id is None:
                 return action_result.get_status()
         email_data = None
         data_time_info = None
 
         if not email_id and not container_id:
-            return action_result.set_status(phantom.APP_ERROR, "Please specify either id or container_id "
-                                                               "to get the email")
+            return action_result.set_status(phantom.APP_ERROR, "Please specify either id or container_id " "to get the email")
 
         if container_id:
             ret_val, email_data, email_id, folder = self._get_email_data_from_container(container_id, action_result)
@@ -787,15 +808,9 @@ class ImapConnector(BaseConnector):
             return action_result.set_status(phantom.APP_SUCCESS, "Email not ingested.")
 
         # Create a config dictionary to represent everything is to be extracted.
-        config = {
-            "extract_attachments": True,
-            "extract_domains": True,
-            "extract_hashes": True,
-            "extract_ips": True,
-            "extract_urls": True
-        }
+        config = {"extract_attachments": True, "extract_domains": True, "extract_hashes": True, "extract_ips": True, "extract_urls": True}
 
-        header_date = mail_header_dict.get('Date')
+        header_date = mail_header_dict.get("Date")
         if (data_time_info is None) and (header_date is not None):
             data_time_info = 'ignore_left "{0}" ignore_right'.format(header_date)
 
@@ -818,7 +833,8 @@ class ImapConnector(BaseConnector):
 
         # Get the maximum number of emails that we can pull, same as container count
         max_emails = self.validate_integers(
-            action_result, param.get(phantom.APP_JSON_CONTAINER_COUNT, IMAP_DEFAULT_CONTAINER_COUNT), "container_count")
+            action_result, param.get(phantom.APP_JSON_CONTAINER_COUNT, IMAP_DEFAULT_CONTAINER_COUNT), "container_count"
+        )
         if not max_emails:
             return action_result.get_status()
 
@@ -856,7 +872,7 @@ class ImapConnector(BaseConnector):
         if self.is_poll_now():
             return self._poll_now(action_result, param)
 
-        lower_id = self._state.get('next_muid', 1)
+        lower_id = self._state.get("next_muid", 1)
 
         # Get the maximum number of emails that we can pull
         config = self.get_config()
@@ -865,14 +881,13 @@ class ImapConnector(BaseConnector):
         max_emails = config[IMAP_JSON_MAX_EMAILS]
 
         # Get the email ids that we will be querying for, different set for first run
-        if self._state.get('first_run', True):
+        if self._state.get("first_run", True):
             # set the config to _not_ first run
-            self._state['first_run'] = False
+            self._state["first_run"] = False
             max_emails = config[IMAP_JSON_FIRST_RUN_MAX_EMAILS]
             self.save_progress("First time Ingestion detected.")
 
-        ret_val, ret_msg, email_ids = self._get_email_ids_to_process(max_emails, lower_id,
-                                                                     config[IMAP_JSON_INGEST_MANNER])
+        ret_val, ret_msg, email_ids = self._get_email_ids_to_process(max_emails, lower_id, config[IMAP_JSON_INGEST_MANNER])
 
         if phantom.is_fail(ret_val):
             return action_result.set_status(ret_val, ret_msg)
@@ -890,7 +905,7 @@ class ImapConnector(BaseConnector):
                 return action_result.set_status(phantom.APP_ERROR)
 
         if email_ids:
-            self._state['next_muid'] = int(email_ids[-1]) + 1
+            self._state["next_muid"] = int(email_ids[-1]) + 1
 
         return action_result.set_status(phantom.APP_SUCCESS)
 
@@ -934,7 +949,7 @@ class ImapConnector(BaseConnector):
         return result
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
 
     import argparse
 
@@ -946,10 +961,10 @@ if __name__ == '__main__':
 
     argparser = argparse.ArgumentParser()
 
-    argparser.add_argument('input_test_json', help='Input Test JSON file')
-    argparser.add_argument('-u', '--username', help='username', required=False)
-    argparser.add_argument('-p', '--password', help='password', required=False)
-    argparser.add_argument('-v', '--verify', action='store_true', help='verify', required=False, default=False)
+    argparser.add_argument("input_test_json", help="Input Test JSON file")
+    argparser.add_argument("-u", "--username", help="username", required=False)
+    argparser.add_argument("-p", "--password", help="password", required=False)
+    argparser.add_argument("-v", "--verify", action="store_true", help="verify", required=False, default=False)
 
     args = argparser.parse_args()
     session_id = None
@@ -962,6 +977,7 @@ if __name__ == '__main__':
 
         # User specified a username but not a password, so ask
         import getpass
+
         password = getpass.getpass("Password: ")
 
     if username and password:
@@ -969,20 +985,20 @@ if __name__ == '__main__':
             print("Accessing the Login page")
             login_url = "{}login".format(BaseConnector._get_phantom_base_url())
             r = requests.get(login_url, verify=verify, timeout=DEFAULT_REQUEST_TIMEOUT)
-            csrftoken = r.cookies['csrftoken']
+            csrftoken = r.cookies["csrftoken"]
 
             data = dict()
-            data['username'] = username
-            data['password'] = password
-            data['csrfmiddlewaretoken'] = csrftoken
+            data["username"] = username
+            data["password"] = password
+            data["csrfmiddlewaretoken"] = csrftoken
 
             headers = dict()
-            headers['Cookie'] = 'csrftoken={}'.format(csrftoken)
-            headers['Referer'] = login_url
+            headers["Cookie"] = "csrftoken={}".format(csrftoken)
+            headers["Referer"] = login_url
 
             print("Logging into Platform to get the session id")
             r2 = requests.post(login_url, verify=verify, data=data, headers=headers, timeout=DEFAULT_REQUEST_TIMEOUT)
-            session_id = r2.cookies['sessionid']
+            session_id = r2.cookies["sessionid"]
         except Exception as e:
             print("Unable to get session id from the platform. Error: " + str(e))
             sys.exit(1)
@@ -995,21 +1011,21 @@ if __name__ == '__main__':
         connector = ImapConnector()
         connector.print_progress_message = True
 
-        data = in_json.get('data')
-        raw_email = in_json.get('raw_email')
+        data = in_json.get("data")
+        raw_email = in_json.get("raw_email")
 
         # if neither present then treat it as a normal action test json
         if not data and not raw_email:
             print(json.dumps(in_json, indent=4))
 
             if session_id is not None:
-                in_json['user_session_token'] = session_id
+                in_json["user_session_token"] = session_id
             result = connector._handle_action(json.dumps(in_json), None)
             print(result)
             sys.exit(0)
 
         if data:
-            raw_email = data.get('raw_email')
+            raw_email = data.get("raw_email")
 
         if raw_email:
             config = {
@@ -1018,7 +1034,7 @@ if __name__ == '__main__':
                 "extract_hashes": True,
                 "extract_ips": True,
                 "extract_urls": True,
-                "add_body_to_header_artifacts": True
+                "add_body_to_header_artifacts": True,
             }
 
             process_email = ProcessEmail()
