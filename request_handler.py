@@ -1,6 +1,6 @@
 # File: request_handler.py
 #
-# Copyright (c) 2016-2024 Splunk Inc.
+# Copyright (c) 2016-2025 Splunk Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -69,7 +69,7 @@ class IMAPRequestHandler:
             r.raise_for_status()
             resp_json = r.json()
         except Exception as e:
-            return False, self._return_error("Error retrieving OAuth Token: {}".format(str(e)), 401)
+            return False, self._return_error(f"Error retrieving OAuth Token: {e!s}", 401)
         state["oauth_token"] = resp_json
         state["is_encrypted"] = False
         self._rsh.save_app_state(state)
@@ -98,7 +98,7 @@ class IMAPRequestHandler:
 
             return HttpResponse("You can now close this page", content_type="text/plain")
         except Exception as e:
-            return self._return_error("Error handling request: {}".format(str(e)), 400)
+            return self._return_error(f"Error handling request: {e!s}", 400)
 
 
 class RequestStateHandler:
@@ -107,7 +107,7 @@ class RequestStateHandler:
 
     def _get_state_file(self):
         dirpath = os.path.split(__file__)[0]
-        state_file = "{0}/{1}_state.json".format(dirpath, self._asset_id)
+        state_file = f"{dirpath}/{self._asset_id}_state.json"
         return state_file
 
     @staticmethod
@@ -128,7 +128,7 @@ class RequestStateHandler:
             os.remove(state_file)
         except Exception as ex:
             if connector:
-                connector.error_print("Error occurred while deleting state file: {}".format(str(ex)))
+                connector.error_print(f"Error occurred while deleting state file: {ex!s}")
 
     def encrypt_state(self, state, connector=None):
         if state.get("is_encrypted"):
@@ -139,14 +139,14 @@ class RequestStateHandler:
                 state["oauth_token"]["access_token"] = encryption_helper.encrypt(state["oauth_token"]["access_token"], self._asset_id)
         except Exception as ex:
             if connector:
-                connector.error_print("{}: {}".format(IMAP_ENCRYPTION_ERROR, str(ex)))
+                connector.error_print(f"{IMAP_ENCRYPTION_ERROR}: {ex!s}")
 
         try:
             if state.get("oauth_token") and state.get("oauth_token", {}).get("refresh_token"):
                 state["oauth_token"]["refresh_token"] = encryption_helper.encrypt(state["oauth_token"]["refresh_token"], self._asset_id)
         except Exception as ex:
             if connector:
-                connector.error_print("{}: {}".format(IMAP_ENCRYPTION_ERROR, str(ex)))
+                connector.error_print(f"{IMAP_ENCRYPTION_ERROR}: {ex!s}")
         state["is_encrypted"] = True
         return state
 
@@ -159,7 +159,7 @@ class RequestStateHandler:
         except Exception as ex:
             state["oauth_token"]["access_token"] = None
             if connector:
-                connector.error_print("{}: {}".format(IMAP_DECRYPTION_ERROR, str(ex)))
+                connector.error_print(f"{IMAP_DECRYPTION_ERROR}: {ex!s}")
 
         try:
             if state.get("oauth_token") and state.get("oauth_token", {}).get("refresh_token"):
@@ -167,7 +167,7 @@ class RequestStateHandler:
         except Exception as ex:
             state["oauth_token"]["refresh_token"] = None
             if connector:
-                connector.error_print("{}: {}".format(IMAP_DECRYPTION_ERROR, str(ex)))
+                connector.error_print(f"{IMAP_DECRYPTION_ERROR}: {ex!s}")
 
         state["is_encrypted"] = False
 
@@ -181,7 +181,7 @@ class RequestStateHandler:
                 fp.write(json.dumps(state))
         except Exception as ex:
             if connector:
-                connector.error_print("Error occurred while saving state: {}".format(str(ex)))
+                connector.error_print(f"Error occurred while saving state: {ex!s}")
 
         return True
 
@@ -189,12 +189,12 @@ class RequestStateHandler:
         state_file = self._get_state_file()
         state = {}
         try:
-            with open(state_file, "r") as fp:
+            with open(state_file) as fp:
                 in_json = fp.read()
                 state = json.loads(in_json)
         except Exception as ex:
             if connector:
-                connector.error_print("Error occurred while saving state: {}".format(str(ex)))
+                connector.error_print(f"Error occurred while saving state: {ex!s}")
 
         if not decrypt:
             return state
