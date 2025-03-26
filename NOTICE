@@ -1,40 +1,39 @@
 Splunk SOAR IMAP
-Copyright (c) 2016-2024 Splunk Inc.
+Copyright (c) 2016-2025 Splunk Inc.
 
-Third-party Software Attributions:
+Third Party Software Attributions:
 
-Library: IMAPClient
-Version: 2.2.0
-License: New BSD License
-Copyright (c) 2014, Menno Smits
-
-Library: beautifulsoup4
+Name: beautifulsoup4
 Version: 4.9.1
+Author: Leonard Richardson
 License: MIT
-Copyright 2004-2017 Leonard Richardson
-Copyright 2004-2019 Leonard Richardson
-Copyright 2018 Isaac Muse
 
-Library: parse
+Name: IMAPClient
+Version: 2.2.0
+Author: Menno Finlay-Smits
+License: http://en.wikipedia.org/wiki/BSD_licenses
+
+Name: parse
 Version: 1.17.0
-License: MIT
-Copyright 2012-2019 Richard Jones <richard@python.org>
-Copyright 2012-2020 Richard Jones <richard@python.org>
-Copyright 2012-2020 Richard Jones <richard@python.org>
+Author: Richard Jones
+License: UNKNOWN
 
-Library: python-dateutil
+Name: python-dateutil
 Version: 2.8.1
-License: Apache 2.0
-License: BSD 3
-Copyright 2003-2011 - Gustavo Niemeyer <gustavo@niemeyer.net>
-Copyright 2012-2014 - Tomi Pieviläinen <tomi.pievilainen@iki.fi>
-Copyright 2014-2016 - Yaron de Leeuw <me@jarondl.net>
-Copyright 2015 - Paul Ganssle <paul@ganssle.io>
-Copyright 2015 - dateutil contributors (see AUTHORS file)
-Copyright 2017 Paul Ganssle <paul@ganssle.io>
-Copyright 2017 dateutil contributors (see AUTHORS file)
+Author: Gustavo Niemeyer
+License: Dual License
 
-Library: python-magic
+Name: python-magic
 Version: 0.4.18
+Author: Adam Hupp
 License: MIT
-Copyright 2001-2014 Adam Hupp
+
+Name: six
+Version: 1.17.0
+Author: Benjamin Peterson
+License: MIT
+
+Name: soupsieve
+Version: 2.6
+Author:
+License:
