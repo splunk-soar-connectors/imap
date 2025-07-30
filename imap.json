@@ -5,8 +5,8 @@
     "type": "email",
     "publisher": "Splunk",
     "main_module": "imap_connector.py",
-    "app_version": "3.4.3",
-    "utctime_updated": "2025-04-11T18:26:03.141035Z",
+    "app_version": "3.4.4",
+    "utctime_updated": "2025-07-30T17:46:53.024048Z",
     "package_name": "phantom_imap",
     "product_vendor": "Generic",
     "product_name": "IMAP",
@@ -18,7 +18,10 @@
         "On-premise Outlook Web Access v14.3.301.0, Mailbox server Microsoft Exchange v14.3.123.0",
         "OAuth, Gmail December 12, 2023"
     ],
-    "python_version": ["3.9", "3.13"],
+    "python_version": [
+        "3.9",
+        "3.13"
+    ],
     "logo": "logo_splunk.svg",
     "logo_dark": "logo_splunk_dark.svg",
     "license": "Copyright (c) 2016-2025 Splunk Inc.",
