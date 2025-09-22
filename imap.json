@@ -567,7 +567,7 @@
         "wheel": [
             {
                 "module": "IMAPClient",
-                "input_file": "wheels/shared/IMAPClient-2.2.0-py2.py3-none-any.whl"
+                "input_file": "wheels/shared/IMAPClient-2.3.1-py2.py3-none-any.whl"
             },
             {
                 "module": "python_magic",
@@ -579,7 +579,7 @@
         "wheel": [
             {
                 "module": "IMAPClient",
-                "input_file": "wheels/shared/IMAPClient-2.2.0-py2.py3-none-any.whl"
+                "input_file": "wheels/shared/IMAPClient-2.3.1-py2.py3-none-any.whl"
             },
             {
                 "module": "python_magic",
