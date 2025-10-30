@@ -1,5 +1,3 @@
-# File: imap_consts.py
-#
 # Copyright (c) 2016-2025 Splunk Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -59,15 +57,25 @@ IMAP_SUCCESS_CONNECTIVITY_TEST = "Connectivity test passed"
 IMAP_ERROR_CONNECTIVITY_TEST = "Connectivity test failed"
 IMAP_ERROR_END_TIME_LT_START_TIME = "End time less than start time"
 IMAP_ERROR_MAILBOX_SEARCH_FAILED = "Mailbox search failed"
-IMAP_ERROR_MAILBOX_SEARCH_FAILED_RESULT = "Mailbox search failed, result: {result} data: {data}"
+IMAP_ERROR_MAILBOX_SEARCH_FAILED_RESULT = (
+    "Mailbox search failed, result: {result} data: {data}"
+)
 IMAP_FETCH_ID_FAILED = "Fetch for uuid: {muuid} failed, reason: {excep}"
-IMAP_FETCH_ID_FAILED_RESULT = "Fetch for uuid: {muuid} failed, result: {result}, data: {data}"
-IMAP_VALIDATE_INTEGER_MESSAGE = "Please provide a valid integer value in the {key} parameter"
+IMAP_FETCH_ID_FAILED_RESULT = (
+    "Fetch for uuid: {muuid} failed, result: {result}, data: {data}"
+)
+IMAP_VALIDATE_INTEGER_MESSAGE = (
+    "Please provide a valid integer value in the {key} parameter"
+)
 IMAP_ERROR_CODE_MESSAGE = "Error code unavailable"
 IMAP_ERROR_MESSAGE = "Unknown error occurred. Please check the asset configuration and|or action parameters"
 IMAP_EXCEPTION_ERROR_MESSAGE = "Error Code: {0}. Error Message: {1}"
-IMAP_REQUIRED_PARAM_OAUTH = "ERROR: {0} is a required parameter for OAuth Authentication, please specify one."
-IMAP_REQUIRED_PARAM_BASIC = "ERROR: {0} is a required parameter for Basic Authentication, please specify one."
+IMAP_REQUIRED_PARAM_OAUTH = (
+    "ERROR: {0} is a required parameter for OAuth Authentication, please specify one."
+)
+IMAP_REQUIRED_PARAM_BASIC = (
+    "ERROR: {0} is a required parameter for Basic Authentication, please specify one."
+)
 IMAP_GENERAL_ERROR_MESSAGE = "{}. Details: {}"
 IMAP_STATE_FILE_CORRUPT_ERROR = (
     "Error occurred while loading the state file due to its unexpected format. "

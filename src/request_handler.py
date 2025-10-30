@@ -1,5 +1,3 @@
-# File: request_handler.py
-#
 # Copyright (c) 2016-2025 Splunk Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -16,12 +14,25 @@
 import base64
 import json
 import os
+from pathlib import Path
 
-import encryption_helper
 import requests
-from django.http import HttpResponse
 
-from imap_consts import *
+from . import encryption_helper
+from .imap_consts import (
+    DEFAULT_REQUEST_TIMEOUT,
+    IMAP_DECRYPTION_ERROR,
+    IMAP_ENCRYPTION_ERROR,
+)
+
+
+# Simple HttpResponse replacement
+class HttpResponse:
+    """Simple HTTP response"""
+
+    def __init__(self, content="", status=200):
+        self.content = content
+        self.status_code = status
 
 
 def handle_request(request, path_parts):
@@ -65,11 +76,15 @@ class IMAPRequestHandler:
         }
 
         try:
-            r = requests.post(token_url, data=body, proxies=proxy, timeout=DEFAULT_REQUEST_TIMEOUT)
+            r = requests.post(
+                token_url, data=body, proxies=proxy, timeout=DEFAULT_REQUEST_TIMEOUT
+            )
             r.raise_for_status()
             resp_json = r.json()
         except Exception as e:
-            return False, self._return_error(f"Error retrieving OAuth Token: {e!s}", 401)
+            return False, self._return_error(
+                f"Error retrieving OAuth Token: {e!s}", 401
+            )
         state["oauth_token"] = resp_json
         state["is_encrypted"] = False
         self._rsh.save_app_state(state)
@@ -96,7 +111,9 @@ class IMAPRequestHandler:
             if ret_val is False:
                 return http_object
 
-            return HttpResponse("You can now close this page", content_type="text/plain")
+            return HttpResponse(
+                "You can now close this page", content_type="text/plain"
+            )
         except Exception as e:
             return self._return_error(f"Error handling request: {e!s}", 400)
 
@@ -118,32 +135,42 @@ class RequestStateHandler:
         :param asset_id: asset_id
         :return: is_valid: Boolean True if valid, False if not.
         """
-        if isinstance(asset_id, str) and asset_id.isalnum() and len(asset_id) <= 128:
-            return True
-        return False
+        return bool(
+            isinstance(asset_id, str) and asset_id.isalnum() and len(asset_id) <= 128
+        )
 
     def delete_state(self, connector):
         state_file = self._get_state_file()
         try:
-            os.remove(state_file)
+            Path(state_file).unlink()
         except Exception as ex:
             if connector:
-                connector.error_print(f"Error occurred while deleting state file: {ex!s}")
+                connector.error_print(
+                    f"Error occurred while deleting state file: {ex!s}"
+                )
 
     def encrypt_state(self, state, connector=None):
         if state.get("is_encrypted"):
             return state
 
         try:
-            if state.get("oauth_token") and state.get("oauth_token", {}).get("access_token"):
-                state["oauth_token"]["access_token"] = encryption_helper.encrypt(state["oauth_token"]["access_token"], self._asset_id)
+            if state.get("oauth_token") and state.get("oauth_token", {}).get(
+                "access_token"
+            ):
+                state["oauth_token"]["access_token"] = encryption_helper.encrypt(
+                    state["oauth_token"]["access_token"], self._asset_id
+                )
         except Exception as ex:
             if connector:
                 connector.error_print(f"{IMAP_ENCRYPTION_ERROR}: {ex!s}")
 
         try:
-            if state.get("oauth_token") and state.get("oauth_token", {}).get("refresh_token"):
-                state["oauth_token"]["refresh_token"] = encryption_helper.encrypt(state["oauth_token"]["refresh_token"], self._asset_id)
+            if state.get("oauth_token") and state.get("oauth_token", {}).get(
+                "refresh_token"
+            ):
+                state["oauth_token"]["refresh_token"] = encryption_helper.encrypt(
+                    state["oauth_token"]["refresh_token"], self._asset_id
+                )
         except Exception as ex:
             if connector:
                 connector.error_print(f"{IMAP_ENCRYPTION_ERROR}: {ex!s}")
@@ -154,16 +181,24 @@ class RequestStateHandler:
         if not state.get("is_encrypted"):
             return state
         try:
-            if state.get("oauth_token") and state.get("oauth_token", {}).get("access_token"):
-                state["oauth_token"]["access_token"] = encryption_helper.decrypt(state["oauth_token"]["access_token"], self._asset_id)
+            if state.get("oauth_token") and state.get("oauth_token", {}).get(
+                "access_token"
+            ):
+                state["oauth_token"]["access_token"] = encryption_helper.decrypt(
+                    state["oauth_token"]["access_token"], self._asset_id
+                )
         except Exception as ex:
             state["oauth_token"]["access_token"] = None
             if connector:
                 connector.error_print(f"{IMAP_DECRYPTION_ERROR}: {ex!s}")
 
         try:
-            if state.get("oauth_token") and state.get("oauth_token", {}).get("refresh_token"):
-                state["oauth_token"]["refresh_token"] = encryption_helper.decrypt(state["oauth_token"]["refresh_token"], self._asset_id)
+            if state.get("oauth_token") and state.get("oauth_token", {}).get(
+                "refresh_token"
+            ):
+                state["oauth_token"]["refresh_token"] = encryption_helper.decrypt(
+                    state["oauth_token"]["refresh_token"], self._asset_id
+                )
         except Exception as ex:
             state["oauth_token"]["refresh_token"] = None
             if connector:
