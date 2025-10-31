@@ -1,4 +1,4 @@
-# imap
+# IMAP
 
 Publisher: Splunk <br>
 Connector Version: 3.4.7 <br>
@@ -300,7 +300,7 @@ Below are the ports used by IMAP library for the connection.
 
 ### Configuration variables
 
-This table lists the configuration variables required to operate imap. These variables are specified when configuring a IMAP asset in Splunk SOAR.
+This table lists the configuration variables required to operate IMAP. These variables are specified when configuring a IMAP asset in Splunk SOAR.
 
 VARIABLE | REQUIRED | TYPE | DESCRIPTION
 -------- | -------- | ---- | -----------

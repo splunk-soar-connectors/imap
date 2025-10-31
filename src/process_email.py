@@ -26,7 +26,6 @@ from html import unescape
 from pathlib import Path
 from urllib.parse import urlparse
 
-import magic
 from bs4 import BeautifulSoup, UnicodeDammit
 from requests.structures import CaseInsensitiveDict
 from soar_sdk.shims import phantom
@@ -153,6 +152,8 @@ class ProcessEmail:
         self._tmp_dirs = list()
 
     def _get_file_contains(self, file_path):
+        import magic
+
         contains = []
         ext = Path(file_path).suffix
         contains.extend(FILE_EXTENSIONS.get(ext, []))

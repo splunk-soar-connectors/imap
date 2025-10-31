@@ -127,7 +127,7 @@ class Asset(BaseAsset):
 
 
 app = App(
-    name="imap",
+    name="IMAP",
     app_type="email",
     logo="logo_splunk.svg",
     logo_dark="logo_splunk_dark.svg",
@@ -432,10 +432,6 @@ class ImapHelper:
                 logger.debug(f"Internal date Epoch: {dt}({epoch})")
             else:
                 logger.debug(f"Unable to parse date/time: {data_time_info}")
-
-        # Use ProcessEmail to parse the email and create containers/artifacts
-
-        ProcessEmail()
 
         # Create container for the email
         mail = email.message_from_string(email_data)
