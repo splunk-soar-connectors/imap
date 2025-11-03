@@ -404,6 +404,8 @@ action_result.parameter.id | string | `imap email id` | |
 action_result.parameter.container_id | string | `phantom container id` | |
 action_result.parameter.folder | string | | |
 action_result.parameter.ingest_email | boolean | | |
+action_result.data.\*.message | string | | |
+action_result.data.\*.container_id | numeric | | |
 action_result.data.\*.ARC-Authentication-Results | string | | |
 action_result.data.\*.ARC-Message-Signature | string | | |
 action_result.data.\*.ARC-Seal | string | | |

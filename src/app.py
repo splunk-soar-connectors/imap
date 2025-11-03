@@ -13,6 +13,7 @@
 #
 import contextlib
 import email
+import hashlib
 import imaplib
 import socket
 import time
@@ -50,7 +51,7 @@ from .imap_consts import (
     IMAP_SUCCESS_CONNECTIVITY_TEST,
     IMAP_VALIDATE_INTEGER_MESSAGE,
 )
-from .process_email import ProcessEmail
+from .process_email import ProcessEmail, IMAP_APP_ID
 
 logger = getLogger()
 
@@ -153,6 +154,14 @@ class ImapHelper:
         self._folder_name = None
         self._is_hex = False
 
+    def debug_print(self, *args):
+        """Debug print for ProcessEmail compatibility"""
+        logger.debug(" ".join(str(arg) for arg in args))
+
+    def get_app_id(self):
+        """Return IMAP app ID for ProcessEmail compatibility"""
+        return IMAP_APP_ID
+
     def _get_error_message_from_exception(self, e):
         """Get appropriate error message from the exception"""
         error_code = None
@@ -211,19 +220,15 @@ class ImapHelper:
         use_ssl = self.asset.use_ssl
         server = self.asset.server
 
-        # Set timeout to avoid stall
         socket.setdefaulttimeout(60)
 
-        # Connect to the server
         try:
             if is_oauth or use_ssl:
                 self._imap_conn = imaplib.IMAP4_SSL(server)
             else:
                 self._imap_conn = imaplib.IMAP4(server)
-                # Try STARTTLS for non-SSL connections
                 with contextlib.suppress(Exception):
                     self._imap_conn.starttls()
-                    logger.debug("STARTTLS enabled successfully")
         except Exception as e:
             error_text = self._get_error_message_from_exception(e)
             raise Exception(
@@ -234,25 +239,22 @@ class ImapHelper:
 
         logger.info(IMAP_CONNECTED_TO_SERVER)
 
-        # Login
         try:
             if is_oauth:
                 auth_string = self._generate_oauth_string(
                     self.asset.username,
                     self._state.get("oauth_token", {}).get("access_token"),
                 )
-                result, data = self._imap_conn.authenticate(
+                result, _ = self._imap_conn.authenticate(
                     "XOAUTH2", lambda _: auth_string
                 )
             else:
-                result, data = self._imap_conn.login(
+                result, _ = self._imap_conn.login(
                     self.asset.username, self.asset.password
                 )
         except Exception as e:
             error_text = self._get_error_message_from_exception(e)
-            # If token is expired, use the refresh token to re-new the access token
             if first_try and is_oauth and "Invalid credentials" in error_text:
-                logger.debug("Try to generate token from refresh token")
                 self._interactive_auth_refresh()
                 return self._connect_to_server(False)
             raise Exception(
@@ -262,14 +264,12 @@ class ImapHelper:
             ) from None
 
         if result != "OK":
-            logger.debug(f"Logging in error, result: {result} data: {data}")
             raise Exception(IMAP_ERROR_LOGGING_IN_TO_SERVER)
 
         logger.info(IMAP_LOGGED_IN)
 
-        # List imap data
         try:
-            result, data = self._imap_conn.list()
+            result, _ = self._imap_conn.list()
         except Exception as e:
             error_text = self._get_error_message_from_exception(e)
             raise Exception(
@@ -282,7 +282,7 @@ class ImapHelper:
 
         self._folder_name = self.asset.folder
         try:
-            result, data = self._imap_conn.select(
+            result, _ = self._imap_conn.select(
                 f'"{imap_utf7.encode(self._folder_name).decode()}"', True
             )
         except Exception as e:
@@ -295,21 +295,14 @@ class ImapHelper:
             ) from e
 
         if result != "OK":
-            logger.debug(f"Error selecting folder, result: {result} data: {data}")
             raise Exception(
                 IMAP_ERROR_SELECTING_FOLDER.format(folder=self._folder_name)
             )
 
         logger.info(IMAP_SELECTED_FOLDER.format(folder=self._folder_name))
 
-        no_of_emails = data[0]
-        logger.debug(f"Total emails: {no_of_emails}")
-
     def _get_email_data(self, muuid, folder=None, is_diff=False):
         """Get email data from IMAP server"""
-        email_data = None
-        data_time_info = None
-
         if is_diff and folder:
             try:
                 result, data = self._imap_conn.select(
@@ -324,17 +317,15 @@ class ImapHelper:
                 ) from e
 
             if result != "OK":
-                logger.debug(f"Error selecting folder, result: {result} data: {data}")
                 raise Exception(IMAP_ERROR_SELECTING_FOLDER.format(folder=folder))
 
             logger.info(IMAP_SELECTED_FOLDER.format(folder=folder))
 
-        # query for the whole email body
         try:
             (result, data) = self._imap_conn.uid(
                 "fetch", muuid, "(INTERNALDATE RFC822)"
             )
-        except TypeError:  # py3
+        except TypeError:
             (result, data) = self._imap_conn.uid(
                 "fetch", str(muuid), "(INTERNALDATE RFC822)"
             )
@@ -343,10 +334,6 @@ class ImapHelper:
             raise Exception(
                 IMAP_FETCH_ID_FAILED.format(muuid=muuid, excep=error_text)
             ) from e
-
-        logger.debug(
-            f"UID fetch result: {result}, data type: {type(data)}, data: {data}"
-        )
 
         if result != "OK":
             raise Exception(
@@ -360,14 +347,12 @@ class ImapHelper:
                 f"Invalid data returned for email ID {muuid}: data is not a list or is empty"
             )
 
-        # Handle case where the email doesn't exist
         if data[0] is None:
             raise Exception(f"Email with ID {muuid} not found")
 
         if not isinstance(data[0], tuple) or len(data[0]) < 2:
             raise Exception(f"Invalid data structure for email ID {muuid}: {data[0]}")
 
-        # parse the email body into an object
         try:
             email_data = data[0][1].decode("UTF-8")
         except UnicodeDecodeError:
@@ -379,7 +364,6 @@ class ImapHelper:
     def _get_email_ids_to_process(self, max_emails, lower_id, manner):
         """Get list of email UIDs to process based on ingestion manner"""
         try:
-            # Fetch all UIDs from lower_id onwards
             result, data = self._imap_conn.uid("search", None, f"UID {lower_id!s}:*")
         except Exception as e:
             error_text = self._get_error_message_from_exception(e)
@@ -389,37 +373,25 @@ class ImapHelper:
             raise Exception(f"Failed to get email IDs. Server response: {data}")
 
         if not data or not data[0]:
-            logger.info("No emails found")
             return []
 
-        # Get the UIDs
         uids = [int(uid) for uid in data[0].split()]
 
-        # If only one UID and it's less than lower_id, no new emails
         if len(uids) == 1 and uids[0] < lower_id:
-            logger.info(f"No new UIDs found (only {uids[0]} which is < {lower_id})")
             return []
 
-        # Sort UIDs
         uids.sort()
-
-        # Limit number of emails
         max_emails = int(max_emails)
 
         if manner == "latest first":
-            logger.info(
-                f"Getting {max_emails} MOST RECENT email UIDs since UID {lower_id}"
-            )
-            # Return the latest (rightmost) items
             return uids[-max_emails:]
         else:
-            logger.info(f"Getting NEXT {max_emails} email UIDs since UID {lower_id}")
-            # Return the oldest (leftmost) items
             return uids[:max_emails]
 
-    def _parse_and_create_artifacts(self, email_id, email_data, data_time_info, asset):
-        """Parse email and yield Container and Artifacts for ingestion"""
-        # Parse the date/time info to get epoch
+    def _parse_and_create_artifacts(
+        self, email_id, email_data, data_time_info, asset, config=None
+    ):
+        """Parse email and yield Container and Artifacts for ingestion using ProcessEmail"""
         epoch = int(time.mktime(datetime.now(tz=UTC).timetuple())) * 1000
 
         if data_time_info:
@@ -429,50 +401,38 @@ class ImapHelper:
                 dt = parse_data["dt"]
                 dt.replace(tzinfo=tz.tzlocal())
                 epoch = int(time.mktime(dt.timetuple())) * 1000
-                logger.debug(f"Internal date Epoch: {dt}({epoch})")
-            else:
-                logger.debug(f"Unable to parse date/time: {data_time_info}")
 
-        # Create container for the email
-        mail = email.message_from_string(email_data)
-        subject = mail.get("Subject", f"Email UID {email_id}")
-        from_addr = mail.get("From", "unknown")
+        if config is None:
+            config = {
+                "extract_attachments": asset.extract_attachments,
+                "extract_domains": asset.extract_domains,
+                "extract_hashes": asset.extract_hashes,
+                "extract_ips": asset.extract_ips,
+                "extract_urls": asset.extract_urls,
+            }
 
-        # Create source data identifier (folder : email_id)
-        source_id = f"{self._folder_name} : {email_id}"
+        process_email = ProcessEmail()
+        process_email._base_connector = self
+        process_email._folder_name = self._folder_name
+        process_email._is_hex = self._is_hex
 
-        container = Container(
-            name=subject,
-            label="events",
-            description=f"Email from {from_addr}",
-            source_data_identifier=source_id,
-            data={"raw_email": email_data},
-            run_automation=False,
+        ret_val, message, results = process_email._int_process_email(
+            email_data, email_id, epoch
         )
 
-        logger.info(f"Created container: {subject} with SDI: {source_id}")
-        yield container
+        if not ret_val:
+            logger.error(f"Failed to process email {email_id}: {message}")
+            return
 
-        # Create artifact for email headers
-        headers = mail.__dict__.get("_headers", [])
-        header_dict = {}
-        for header in headers:
-            try:
-                header_dict[header[0]] = str(make_header(decode_header(header[1])))
-            except Exception:
-                header_dict[header[0]] = header[1]
+        for result in results:
+            container_dict = result.get("container")
+            if container_dict:
+                yield Container(**container_dict)
 
-        artifact = Artifact(
-            name="Email Artifact",
-            label="email",
-            cef=header_dict,
-            cef_types={},
-            source_data_identifier=f"{email_id}_email",
-            run_automation=False,
-        )
-
-        logger.info(f"Created artifact with {len(header_dict)} headers")
-        yield artifact
+            artifacts = result.get("artifacts", [])
+            for artifact_dict in artifacts:
+                if artifact_dict:
+                    yield Artifact(**artifact_dict)
 
 
 @app.test_connectivity()
@@ -495,75 +455,52 @@ def on_poll(
     params: OnPollParams, soar: SOARClient, asset: Asset
 ) -> Iterator[Container | Artifact]:
     """Poll for new emails and ingest as containers/artifacts"""
-
     helper = ImapHelper(soar, asset)
-
-    # Connect to server
     helper._connect_to_server()
 
-    # Access ingestion state for tracking email processing
     state = app.actions_manager.ingestion_state
 
-    # Determine if this is first run
-    is_first_run = state.get("first_run", True)
-    lower_id = state.get("next_muid", 1)
+    is_poll_now = params.container_count is not None
 
-    # Determine max emails based on first run
-    if is_first_run:
-        max_emails = int(asset.first_run_max_emails)
+    if is_poll_now:
+        lower_id = 1
+        max_emails = params.container_count if params.container_count > 0 else 100
     else:
-        max_emails = int(asset.max_emails)
-
-    # Allow container_count to override for manual polling
-    if params.container_count:
-        max_emails = params.container_count
-
-    logger.info(f"Will fetch up to {max_emails} emails (starting from UID {lower_id})")
-
-    # Get email IDs to process
-    try:
-        email_ids = helper._get_email_ids_to_process(
-            max_emails, lower_id, asset.ingest_manner
+        is_first_run = state.get("first_run", True)
+        lower_id = state.get("next_muid", 1)
+        max_emails = (
+            int(asset.first_run_max_emails) if is_first_run else int(asset.max_emails)
         )
-        logger.info(f"Got {len(email_ids)} email IDs: {email_ids}")
-    except Exception as e:
-        logger.error(f"Failed to get email IDs: {e}")
-        logger.exception("Full traceback:")
-        raise
+
+    email_ids = helper._get_email_ids_to_process(
+        max_emails, lower_id, asset.ingest_manner
+    )
 
     if not email_ids:
         logger.info("No new emails to ingest")
         return
 
-    logger.info(f"Found {len(email_ids)} emails to ingest")
-
-    # Process each email
-    for i, email_id in enumerate(email_ids):
-        logger.info(f"Processing email UID {email_id} ({i + 1}/{len(email_ids)})")
-
+    for email_id in email_ids:
         try:
-            # Get email data
             email_data, data_time_info = helper._get_email_data(email_id)
-            logger.info(f"Got email data, size: {len(email_data)} bytes")
 
-            # Parse and yield containers/artifacts
             yield from helper._parse_and_create_artifacts(
                 email_id, email_data, data_time_info, asset
             )
 
         except Exception as e:
             logger.error(f"Error processing email {email_id}: {e}")
-            logger.exception("Full traceback:")
-            # Continue to next email instead of failing completely
             continue
 
-    # Update state with next UID to process
-    if email_ids:
+    if email_ids and not is_poll_now:
         state["next_muid"] = int(email_ids[-1]) + 1
         state["first_run"] = False
-        logger.info(f"Updated next_muid to {state['next_muid']}")
 
-    logger.info(f"On_poll completed, processed {len(email_ids)} emails")
+
+class GetEmailSummary(ActionOutput):
+    """Summary output for get_email action"""
+
+    container_id: int | None = None
 
 
 class GetEmailParams(Params):
@@ -594,6 +531,8 @@ class GetEmailParams(Params):
 class GetEmailOutput(ActionOutput):
     # Make all fields optional since not all emails have all headers
     # Using Pydantic Field with default=None for optional fields
+    message: str | None = None
+    container_id: int | None = None
     ARC_Authentication_Results: str | None = PydanticField(
         None, alias="ARC-Authentication-Results"
     )
@@ -712,27 +651,112 @@ def get_email(params: GetEmailParams, soar: SOARClient, asset: Asset) -> GetEmai
 
     if params.id:
         helper._connect_to_server()
+        folder = params.folder if params.folder else asset.folder
         email_data, _data_time_info = helper._get_email_data(
-            params.id, params.folder if params.folder else asset.folder
+            params.id, folder, is_diff=True
         )
+
+        folder_encoded = folder.encode()
+        folder_hash = hashlib.sha256(folder_encoded)
+        folder_hex = folder_hash.hexdigest()
+
+        helper._is_hex = True
+        helper._folder_name = folder_hex
+
         mail = email.message_from_string(email_data)
 
-        # Get mail headers
+        mail_header_dict = {}
         headers = mail.__dict__.get("_headers", [])
-        ret_val = {}
         for header in headers:
             try:
-                ret_val[header[0]] = str(make_header(decode_header(header[1])))
+                mail_header_dict[header[0]] = str(make_header(decode_header(header[1])))
             except Exception:
                 process_email = ProcessEmail()
-                ret_val[header[0]] = process_email._decode_uni_string(
+                mail_header_dict[header[0]] = process_email._decode_uni_string(
                     header[1], header[1]
                 )
 
+        data_time_info = _data_time_info
+        if data_time_info is None:
+            header_date = mail_header_dict.get("Date")
+            if header_date is not None:
+                data_time_info = f'ignore_left "{header_date}" ignore_right'
+
+        container_id = None
+        if params.ingest_email:
+            config = {
+                "extract_attachments": True,
+                "extract_domains": True,
+                "extract_hashes": True,
+                "extract_ips": True,
+                "extract_urls": True,
+            }
+
+            containers_and_artifacts = list(
+                helper._parse_and_create_artifacts(
+                    params.id, email_data, data_time_info, asset, config=config
+                )
+            )
+
+            for obj in containers_and_artifacts:
+                if isinstance(obj, Container):
+                    container_dict = {
+                        "name": obj.name,
+                        "description": obj.description,
+                        "label": obj.label,
+                        "source_data_identifier": obj.source_data_identifier,
+                        "data": obj.data,
+                    }
+                    if obj.start_time:
+                        container_dict["start_time"] = obj.start_time
+                    container_id = soar._containers_api.create(container_dict)
+                    break
+
+            if container_id:
+                for obj in containers_and_artifacts:
+                    if isinstance(obj, Artifact):
+                        artifact_dict = {
+                            "container_id": container_id,
+                            "name": obj.name,
+                            "label": obj.label,
+                            "cef": obj.cef,
+                            "source_data_identifier": obj.source_data_identifier,
+                        }
+                        if obj.cef_types:
+                            artifact_dict["cef_types"] = obj.cef_types
+                        soar._artifacts_api.create(artifact_dict)
+
+            message = f"Email ingested with container ID: {container_id}"
+            soar.set_summary(GetEmailSummary(container_id=container_id))
+        else:
+            message = "Email not ingested."
+
+        soar.set_message(message)
+
+        ret_val = {"message": message}
+        if container_id:
+            ret_val["container_id"] = container_id
+        ret_val.update(mail_header_dict)
+
         return GetEmailOutput(**ret_val)
 
-    # Container ID handling would go here
-    raise NotImplementedError("Container ID handling not yet implemented")
+    if params.container_id:
+        container = soar.get_container(params.container_id)
+        if not container:
+            raise ValueError(f"Container with ID {params.container_id} not found")
+
+        soar.get_container_artifacts(params.container_id)
+
+        ret_val = {}
+
+        if container.get("data"):
+            email_data = container["data"]
+            if isinstance(email_data, dict):
+                ret_val.update(email_data)
+
+        return GetEmailOutput(**ret_val)
+
+    raise ValueError("Please specify either id or container_id to get the email")
 
 
 if __name__ == "__main__":

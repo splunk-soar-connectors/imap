@@ -28,7 +28,17 @@ from urllib.parse import urlparse
 
 from bs4 import BeautifulSoup, UnicodeDammit
 from requests.structures import CaseInsensitiveDict
-from soar_sdk.shims import phantom
+
+try:
+    import phantom.app as phantom
+except ImportError:
+    from soar_sdk.shims import phantom
+    from soar_sdk.shims.phantom.app import APP_SUCCESS, APP_ERROR
+
+    phantom.APP_SUCCESS = APP_SUCCESS
+    phantom.APP_ERROR = APP_ERROR
+    phantom.is_fail = lambda x: x == APP_ERROR
+    phantom.is_success = lambda x: x == APP_SUCCESS
 
 from . import phantom_rules
 from . import phantom_utils as ph_utils
@@ -943,22 +953,11 @@ class ProcessEmail:
         # delete the header info, we dont make it a part of the container json
         del container_data[PROC_EMAIL_JSON_EMAIL_HEADERS]
         container.update(_container_common)
-        fips_enabled = self._base_connector._get_fips_enabled()
-        # if fips is not enabled, we should continue with our existing md5 usage for generating hashes
-        # to not impact existing customers
         if not self._base_connector._is_hex:
             try:
-                if not fips_enabled:
-                    folder_hex = hashlib.md5(self._base_connector._folder_name)  # noqa: S324
-                else:
-                    folder_hex = hashlib.sha256(self._base_connector._folder_name)
+                folder_hex = hashlib.sha256(self._base_connector._folder_name)
             except Exception:
-                if not fips_enabled:
-                    folder_hex = hashlib.md5(self._base_connector._folder_name.encode())  # noqa: S324
-                else:
-                    folder_hex = hashlib.sha256(
-                        self._base_connector._folder_name.encode()
-                    )
+                folder_hex = hashlib.sha256(self._base_connector._folder_name.encode())
 
             folder_sdi = folder_hex.hexdigest()
         else:
@@ -1392,17 +1391,10 @@ class ProcessEmail:
             )
             return None
 
-        fips_enabled = self._base_connector._get_fips_enabled()
         try:
-            if not fips_enabled:
-                return hashlib.md5(input_dict_str).hexdigest()  # noqa: S324
-            else:
-                return hashlib.sha256(input_dict_str).hexdigest()
+            return hashlib.sha256(input_dict_str).hexdigest()
         except TypeError:  # py3
-            if not fips_enabled:
-                return hashlib.md5(input_dict_str.encode("UTF-8")).hexdigest()  # noqa: S324
-            else:
-                return hashlib.sha256(input_dict_str.encode("UTF-8")).hexdigest()
+            return hashlib.sha256(input_dict_str.encode("UTF-8")).hexdigest()
 
     def _del_tmp_dirs(self):
         """Remove any tmp_dirs that were created."""
