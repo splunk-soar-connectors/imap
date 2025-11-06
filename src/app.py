@@ -48,9 +48,9 @@ from .imap_consts import (
     IMAP_LOGGED_IN,
     IMAP_SELECTED_FOLDER,
     IMAP_SUCCESS_CONNECTIVITY_TEST,
-    IMAP_VALIDATE_INTEGER_MESSAGE,
 )
-from .process_email import ProcessEmail, IMAP_APP_ID
+from .process_email import ProcessEmail, ProcessEmailContext, IMAP_APP_ID
+from soar_sdk.shims.phantom.vault import PhantomVault
 
 logger = getLogger()
 
@@ -165,27 +165,6 @@ class ImapHelper:
         """Get appropriate error message from the exception"""
         logger.error(f"Error occurred: {e}")
         return str(e)
-
-    @staticmethod
-    def validate_integers(parameter, key, allow_zero=False):
-        """Validate if the parameter is a valid integer"""
-        try:
-            if not float(parameter).is_integer():
-                raise ValueError(IMAP_VALIDATE_INTEGER_MESSAGE.format(key=key))
-            parameter = int(parameter)
-        except Exception as e:
-            raise ValueError(IMAP_VALIDATE_INTEGER_MESSAGE.format(key=key)) from e
-
-        if parameter < 0:
-            raise ValueError(
-                f"Please provide a valid non-negative integer value in the {key} parameter"
-            )
-        if not allow_zero and parameter == 0:
-            raise ValueError(
-                f"Please provide a positive integer value in the {key} parameter"
-            )
-
-        return parameter
 
     def _generate_oauth_string(self, username, access_token):
         """Generates an IMAP OAuth2 authentication string"""
@@ -389,11 +368,16 @@ class ImapHelper:
                 "extract_urls": asset.extract_urls,
             }
 
-        process_email = ProcessEmail()
-        process_email._base_connector = self
-        process_email._folder_name = self._folder_name
-        process_email._is_hex = self._is_hex
-        process_email._config = config
+        context = ProcessEmailContext(
+            soar=self.soar,
+            vault=PhantomVault(self.soar),
+            app_id=IMAP_APP_ID,
+            folder_name=self._folder_name,
+            is_hex=self._is_hex,
+            action_name=None,  # Not available in this context
+            app_run_id=None,  # Not available in this context
+        )
+        process_email = ProcessEmail(context, config)
 
         ret_val, message, results = process_email._int_process_email(
             email_data, email_id, epoch
@@ -649,7 +633,15 @@ def get_email(params: GetEmailParams, soar: SOARClient, asset: Asset) -> GetEmai
             try:
                 mail_header_dict[header[0]] = str(make_header(decode_header(header[1])))
             except Exception:
-                process_email = ProcessEmail()
+                # Create minimal context just for decoding
+                temp_context = ProcessEmailContext(
+                    soar=soar,
+                    vault=PhantomVault(soar),
+                    app_id=IMAP_APP_ID,
+                    folder_name="",
+                    is_hex=False,
+                )
+                process_email = ProcessEmail(temp_context, {})
                 mail_header_dict[header[0]] = process_email._decode_uni_string(
                     header[1], header[1]
                 )

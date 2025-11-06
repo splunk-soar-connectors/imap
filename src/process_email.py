@@ -33,13 +33,13 @@ from soar_sdk.shims import phantom
 from soar_sdk.shims.phantom.app import APP_SUCCESS, APP_ERROR
 
 import contextlib
+from dataclasses import dataclass
 
-# Import vault functions directly from phantom module when available
-try:
-    from phantom.vault import vault_add, vault_info
-except ImportError:
-    vault_add = None  # type: ignore
-    vault_info = None  # type: ignore
+from soar_sdk.abstract import SOARClient
+from soar_sdk.shims.phantom.vault import PhantomVault
+from soar_sdk.logging import getLogger
+
+logger = getLogger()
 
 
 # URL validator replacement
@@ -144,10 +144,23 @@ ip_regexc = re.compile(IP_REGEX)
 ipv6_regexc = re.compile(IPV6_REGEX)
 
 
+@dataclass
+class ProcessEmailContext:
+    """Context object for email processing with SDK components"""
+
+    soar: SOARClient
+    vault: PhantomVault
+    app_id: str
+    folder_name: str
+    is_hex: bool
+    action_name: str | None = None
+    app_run_id: int | None = None
+
+
 class ProcessEmail:
-    def __init__(self):
-        self._base_connector = None
-        self._config = dict()
+    def __init__(self, context: ProcessEmailContext, config: dict):
+        self.context = context
+        self._config = config
         self._email_id_contains = list()
         self._container = dict()
         self._artifacts = list()
@@ -194,10 +207,7 @@ class ProcessEmail:
         return bool(re.match(sha1_regex, input_str))
 
     def _debug_print(self, *args):
-        if self._base_connector and (hasattr(self._base_connector, "debug_print")):
-            self._base_connector.debug_print(*args)
-
-        return
+        logger.debug(" ".join(str(arg) for arg in args))
 
     def _clean_url(self, url):
         url = url.strip(">),.]\r\n")
@@ -224,9 +234,7 @@ class ProcessEmail:
         try:
             soup = BeautifulSoup(file_data, "html.parser")
         except Exception as e:
-            error_code, error_msg = (
-                self._base_connector._get_error_message_from_exception(e)
-            )
+            error_code, error_msg = str(e)
             err = f"Error Code: {error_code}. Error Message: {error_msg}"
             self._debug_print(
                 f"Error occurred while extracting domains of the URLs. {err}"
@@ -468,9 +476,7 @@ class ProcessEmail:
                 {"value": x[0], "encoding": x[1]} for x in decoded_strings
             ]
         except Exception as e:
-            error_code, error_msg = (
-                self._base_connector._get_error_message_from_exception(e)
-            )
+            error_code, error_msg = str(e)
             err = f"Error Code: {error_code}. Error Message: {error_msg}"
             self._debug_print(f"Decoding: {encoded_strings}. {err}")
             return def_name
@@ -606,9 +612,7 @@ class ProcessEmail:
             with open(file_path, "wb") as f:
                 f.write(part_payload)
         except OSError as e:
-            _error_code, error_msg = (
-                self._base_connector._get_error_message_from_exception(e)
-            )
+            _error_code, error_msg = str(e)
             try:
                 if "File name too long" in error_msg:
                     new_file_name = "ph_long_file_name_temp"
@@ -628,17 +632,13 @@ class ProcessEmail:
                     )
                     return
             except Exception as e:
-                _error_code, error_msg = (
-                    self._base_connector._get_error_message_from_exception(e)
-                )
+                _error_code, error_msg = str(e)
                 self._debug_print(
                     f"Error occurred while adding file to Vault. Error Details: {error_msg}"
                 )
                 return
         except Exception as e:
-            _error_code, error_msg = (
-                self._base_connector._get_error_message_from_exception(e)
-            )
+            _error_code, error_msg = str(e)
             self._debug_print(
                 f"Error occurred while adding file to Vault. Error Details: {error_msg}"
             )
@@ -958,15 +958,15 @@ class ProcessEmail:
         # delete the header info, we dont make it a part of the container json
         del container_data[PROC_EMAIL_JSON_EMAIL_HEADERS]
         container.update(_container_common)
-        if not self._base_connector._is_hex:
+        if not self.context.is_hex:
             try:
-                folder_hex = hashlib.sha256(self._base_connector._folder_name)
+                folder_hex = hashlib.sha256(self.context.folder_name)
             except Exception:
-                folder_hex = hashlib.sha256(self._base_connector._folder_name.encode())
+                folder_hex = hashlib.sha256(self.context.folder_name.encode())
 
             folder_sdi = folder_hex.hexdigest()
         else:
-            folder_sdi = self._base_connector._folder_name
+            folder_sdi = self.context.folder_name
         self._container["source_data_identifier"] = f"{folder_sdi} : {email_id}"
         self._container["name"] = container_name
         self._container["data"] = {"raw_email": rfc822_email}
@@ -997,22 +997,13 @@ class ProcessEmail:
         return APP_SUCCESS
 
     def _set_email_id_contains(self, email_id):
-        if not self._base_connector:
-            return
-
         email_id = str(email_id)
 
-        if (self._base_connector.get_app_id() == EXCHANGE_ONPREM_APP_ID) and (
-            email_id.endswith("=")
-        ):
+        if (self.context.app_id == EXCHANGE_ONPREM_APP_ID) and (email_id.endswith("=")):
             self._email_id_contains = ["exchange email id"]
-        elif (self._base_connector.get_app_id() == OFFICE365_APP_ID) and (
-            email_id.endswith("=")
-        ):
+        elif (self.context.app_id == OFFICE365_APP_ID) and (email_id.endswith("=")):
             self._email_id_contains = ["office 365 email id"]
-        elif (self._base_connector.get_app_id() == IMAP_APP_ID) and (
-            email_id.isdigit()
-        ):
+        elif (self.context.app_id == IMAP_APP_ID) and (email_id.isdigit()):
             self._email_id_contains = ["imap email id"]
         elif self._is_sha1(email_id):
             self._email_id_contains = ["vault id"]
@@ -1095,16 +1086,26 @@ class ProcessEmail:
             artifacts = container["artifacts"]
             for artifact in artifacts:
                 artifact["container_id"] = cid
-            ret_val, message, _ids = self._base_connector.save_artifacts(artifacts)
-            self._base_connector.debug_print(
-                f"save_artifacts returns, value: {ret_val}, reason: {message}"
-            )
+            try:
+                _ids = self.context.soar.save_artifacts(artifacts)
+                ret_val, message = APP_SUCCESS, "Success"
+                logger.debug(
+                    f"save_artifacts returns, value: {ret_val}, reason: {message}"
+                )
+            except Exception as e:
+                ret_val, message = APP_ERROR, str(e)
+                logger.debug(f"save_artifacts failed: {e}")
 
         else:
-            ret_val, message, cid = self._base_connector.save_container(container)
-            self._base_connector.debug_print(
-                f"save_container (with artifacts) returns, value: {ret_val}, reason: {message}, id: {cid}"
-            )
+            try:
+                cid = self.context.soar.save_container(container)
+                ret_val, message = APP_SUCCESS, "Success"
+                logger.debug(
+                    f"save_container (with artifacts) returns, value: {ret_val}, reason: {message}, id: {cid}"
+                )
+            except Exception as e:
+                ret_val, message, cid = APP_ERROR, str(e), None
+                logger.debug(f"save_container failed: {e}")
 
         return ret_val, message, cid
 
@@ -1125,8 +1126,7 @@ class ProcessEmail:
             # Create a new container
             container["artifacts"] = artifacts
 
-        if hasattr(self._base_connector, "_preprocess_container"):
-            container = self._base_connector._preprocess_container(container)
+        # Skip preprocessing for SDK - container should already be properly formatted
 
         for artifact in list(
             [
@@ -1146,12 +1146,12 @@ class ProcessEmail:
 
         if ret_val == APP_ERROR:
             message = f"Failed to save ingested artifacts, error msg: {message}"
-            self._base_connector.debug_print(message)
+            logger.debug(message)
             return
 
         if not container_id:
             message = "save_container did not return a container_id"
-            self._base_connector.debug_print(message)
+            logger.debug(message)
             return
 
         vault_ids = list()
@@ -1175,7 +1175,8 @@ class ProcessEmail:
         return
 
     def _parse_results(self, results, container_id=None):
-        param = self._base_connector.get_current_param()
+        # For SDK, params should be passed through context if needed
+        param = {}
 
         container_count = EWS_DEFAULT_CONTAINER_COUNT
 
@@ -1241,11 +1242,11 @@ class ProcessEmail:
             if x.get("temp_directory")
         ]
 
-        return self._base_connector.set_status(APP_SUCCESS)
+        return APP_SUCCESS
 
     def _add_vault_hashes_to_dictionary(self, cef_artifact, vault_id):
         try:
-            _success, _message, vault_info_data = vault_info(vault_id=vault_id)
+            vault_info_data = self.context.vault.get_attachment(vault_id=vault_id)
         except Exception:
             return APP_ERROR, "Could not retrieve vault file"
 
@@ -1286,32 +1287,22 @@ class ProcessEmail:
         if not file_name:
             file_name = Path(local_file_path).name
 
-        self._base_connector.debug_print(f"Vault file name: {file_name}")
+        logger.debug(f"Vault file name: {file_name}")
 
-        vault_attach_dict[phantom.APP_JSON_ACTION_NAME] = (
-            self._base_connector.get_action_name()
-        )
-        vault_attach_dict[phantom.APP_JSON_APP_RUN_ID] = (
-            self._base_connector.get_app_run_id()
-        )
+        vault_attach_dict[phantom.APP_JSON_ACTION_NAME] = self.context.action_name
+        vault_attach_dict[phantom.APP_JSON_APP_RUN_ID] = self.context.app_run_id
 
         file_name = self._decode_uni_string(file_name, file_name)
 
         try:
-            success, message, vault_id = vault_add(
+            vault_id = self.context.vault.add_attachment(
+                container_id=container_id,
                 file_location=local_file_path,
-                container=container_id,
                 file_name=file_name,
                 metadata=vault_attach_dict,
             )
         except Exception as e:
-            self._base_connector.debug_print(f"Error adding file to vault: {e}")
-            return APP_ERROR, APP_ERROR
-
-        if not success:
-            self._base_connector.debug_print(
-                f"Failed to add file to Vault: {json.dumps(message)}"
-            )
+            logger.debug(f"Error adding file to vault: {e}")
             return APP_ERROR, APP_ERROR
 
         # add the vault id artifact to the container
@@ -1344,12 +1335,15 @@ class ProcessEmail:
             parent_guid = cef_artifact.pop("parentGuid")
             cef_artifact["parentSourceDataIdentifier"] = self._guid_to_hash[parent_guid]
 
-        ret_val, status_string, artifact_id = self._base_connector.save_artifact(
-            artifact
-        )
-        self._base_connector.debug_print(
-            f"save_artifact returns, value: {ret_val}, reason: {status_string}, id: {artifact_id}"
-        )
+        try:
+            artifact_id = self.context.soar.save_artifact(artifact)
+            ret_val, status_string = APP_SUCCESS, "Success"
+            logger.debug(
+                f"save_artifact returns, value: {ret_val}, reason: {status_string}, id: {artifact_id}"
+            )
+        except Exception as e:
+            ret_val, status_string, artifact_id = APP_ERROR, str(e), None
+            logger.debug(f"save_artifact failed: {e}")
 
         return APP_SUCCESS, ret_val
 
@@ -1389,9 +1383,7 @@ class ProcessEmail:
         try:
             input_dict_str = json.dumps(input_dict, sort_keys=True)
         except Exception as e:
-            self._base_connector.debug_print(
-                "Handled exception in _create_dict_hash", e
-            )
+            logger.debug(f"Handled exception in _create_dict_hash: {e}")
             return None
 
         try:
