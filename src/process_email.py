@@ -32,14 +32,14 @@ from requests.structures import CaseInsensitiveDict
 from soar_sdk.shims import phantom
 from soar_sdk.shims.phantom.app import APP_SUCCESS, APP_ERROR
 
-phantom.APP_SUCCESS = APP_SUCCESS
-phantom.APP_ERROR = APP_ERROR
-phantom.is_fail = lambda x: x == APP_ERROR
-phantom.is_success = lambda x: x == APP_SUCCESS
-
-from . import phantom_rules
-from . import phantom_utils as ph_utils
 import contextlib
+
+# Import vault functions directly from phantom module when available
+try:
+    from phantom.vault import vault_add, vault_info
+except ImportError:
+    vault_add = None  # type: ignore
+    vault_info = None  # type: ignore
 
 
 # URL validator replacement
@@ -172,7 +172,9 @@ class ProcessEmail:
         return contains
 
     def _is_ip(self, input_ip):
-        if ph_utils.is_ip(input_ip):
+        # IPv4 regex pattern
+        ip_regex = r"^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])$"
+        if re.match(ip_regex, input_ip):
             return True
 
         return bool(self.is_ipv6(input_ip))
@@ -184,6 +186,12 @@ class ProcessEmail:
             return False
 
         return True
+
+    @staticmethod
+    def _is_sha1(input_str):
+        """Validates if the input is a SHA1 hash."""
+        sha1_regex = r"^[0-9a-fA-F]{40}$"
+        return bool(re.match(sha1_regex, input_str))
 
     def _debug_print(self, *args):
         if self._base_connector and (hasattr(self._base_connector, "debug_print")):
@@ -330,7 +338,7 @@ class ProcessEmail:
                 file_data = f.read()
 
         if (file_data is None) or (len(file_data) == 0):
-            return phantom.APP_ERROR
+            return APP_ERROR
 
         file_data = (
             UnicodeDammit(file_data).unicode_markup.encode("utf-8").decode("utf-8")
@@ -345,7 +353,7 @@ class ProcessEmail:
 
             for curr_email in emails:
                 domain = curr_email[curr_email.rfind("@") + 1 :]
-                if domain and (not ph_utils.is_ip(domain)):
+                if domain and (not self._is_ip(domain)):
                     domains.add(domain)
 
         self._extract_urls_domains(file_data, urls, domains)
@@ -358,7 +366,7 @@ class ProcessEmail:
             if hashs_in_mail:
                 hashes |= set(hashs_in_mail)
 
-        return phantom.APP_SUCCESS
+        return APP_SUCCESS
 
     def _add_artifacts(self, cef_key, input_set, artifact_name, start_index, artifacts):
         added_artifacts = 0
@@ -386,7 +394,7 @@ class ProcessEmail:
 
         self._parse_email_headers(parsed_mail, mail, charset, add_email_id=email_id)
 
-        return phantom.APP_SUCCESS
+        return APP_SUCCESS
 
     def _add_email_header_artifacts(
         self, email_header_artifacts, start_index, artifacts
@@ -441,7 +449,7 @@ class ProcessEmail:
         )
         artifact_id += added_artifacts
 
-        return phantom.APP_SUCCESS
+        return APP_SUCCESS
 
     def _decode_uni_string(self, input_str, def_name):
         # try to find all the decoded strings, we could have multiple decoded strings
@@ -539,19 +547,19 @@ class ProcessEmail:
             process_as_body = True
 
         if not process_as_body:
-            return phantom.APP_SUCCESS, True
+            return APP_SUCCESS, True
 
         part_payload = part.get_payload(decode=True)
 
         if not part_payload:
-            return phantom.APP_SUCCESS, False
+            return APP_SUCCESS, False
 
         with open(file_path, "wb") as f:
             f.write(part_payload)
 
         bodies.append({"file_path": file_path, "charset": part.get_content_charset()})
 
-        return phantom.APP_SUCCESS, False
+        return APP_SUCCESS, False
 
     def remove_child_info(self, file_path):
         if file_path.endswith("_True"):
@@ -563,7 +571,7 @@ class ProcessEmail:
         files = self._parsed_mail[PROC_EMAIL_JSON_FILES]
 
         if not self._config[PROC_EMAIL_JSON_EXTRACT_ATTACHMENTS]:
-            return phantom.APP_SUCCESS
+            return APP_SUCCESS
 
         part_base64_encoded = part.get_payload()
 
@@ -593,7 +601,7 @@ class ProcessEmail:
 
         part_payload = part.get_payload(decode=True)
         if not part_payload:
-            return phantom.APP_SUCCESS
+            return APP_SUCCESS
         try:
             with open(file_path, "wb") as f:
                 f.write(part_payload)
@@ -685,27 +693,27 @@ class ProcessEmail:
         )
 
         if not process_further:
-            return phantom.APP_SUCCESS
+            return APP_SUCCESS
 
         # is this another email as an attachment
         if (content_type is not None) and (
             content_type.find(PROC_EMAIL_CONTENT_TYPE_MESSAGE) != -1
         ):
-            return phantom.APP_SUCCESS
+            return APP_SUCCESS
 
         # This is an attachment and it's not an email
         self._handle_attachment(part, file_name, file_path)
 
-        return phantom.APP_SUCCESS
+        return APP_SUCCESS
 
     def _update_headers(self, headers):
         # compare the various values of the passed header (param: headers)
         # to the header that the class got self._headers_from_ews
         if not self._headers_from_ews:
-            return phantom.APP_SUCCESS
+            return APP_SUCCESS
 
         if not headers:
-            return phantom.APP_SUCCESS
+            return APP_SUCCESS
 
         headers_ci = CaseInsensitiveDict(headers)
 
@@ -717,7 +725,7 @@ class ProcessEmail:
                 # the headers match with the one that we got from the ews API, so update it
                 headers.update(curr_header_lower)
 
-        return phantom.APP_SUCCESS
+        return APP_SUCCESS
 
     def _get_email_headers_from_part(self, part, charset=None):
         email_headers = list(part.items())
@@ -924,7 +932,7 @@ class ProcessEmail:
                     self._debug_print(f"ErrorExp in _handle_part # {i}", e)
                     continue
 
-                if phantom.is_fail(ret_val):
+                if ret_val == APP_ERROR:
                     continue
 
         else:
@@ -940,7 +948,7 @@ class ProcessEmail:
         container_name = self._get_container_name(self._parsed_mail, email_id)
 
         if container_name is None:
-            return phantom.APP_ERROR
+            return APP_ERROR
 
         # Add the container
         # first save the container, to do that copy things from parsed_mail to a new object
@@ -986,7 +994,7 @@ class ProcessEmail:
 
         self._create_artifacts(self._parsed_mail)
 
-        return phantom.APP_SUCCESS
+        return APP_SUCCESS
 
     def _set_email_id_contains(self, email_id):
         if not self._base_connector:
@@ -1006,7 +1014,7 @@ class ProcessEmail:
             email_id.isdigit()
         ):
             self._email_id_contains = ["imap email id"]
-        elif ph_utils.is_sha1(email_id):
+        elif self._is_sha1(email_id):
             self._email_id_contains = ["vault id"]
 
         return
@@ -1014,7 +1022,7 @@ class ProcessEmail:
     def _int_process_email(self, rfc822_email, email_id, start_time_epoch):
         mail = email.message_from_string(rfc822_email)
 
-        ret_val = phantom.APP_SUCCESS
+        ret_val = APP_SUCCESS
 
         tmp_dir = tempfile.mkdtemp(prefix="ph_email_phimap")
         self._tmp_dirs.append(tmp_dir)
@@ -1026,7 +1034,7 @@ class ProcessEmail:
         except Exception as e:
             message = f"ErrorExp in self._handle_mail_object: {e}"
             self._debug_print(message)
-            return phantom.APP_ERROR, message, []
+            return APP_ERROR, message, []
 
         results = [
             {
@@ -1071,7 +1079,7 @@ class ProcessEmail:
 
         if not ret_val:
             self._del_tmp_dirs()
-            return phantom.APP_ERROR, message
+            return APP_ERROR, message
 
         try:
             self._parse_results(results, container_id)
@@ -1079,7 +1087,7 @@ class ProcessEmail:
             self._del_tmp_dirs()
             raise
 
-        return phantom.APP_SUCCESS, "Email Processed"
+        return APP_SUCCESS, "Email Processed"
 
     def _save_ingested(self, container, using_dummy):
         if using_dummy:
@@ -1136,7 +1144,7 @@ class ProcessEmail:
 
         ret_val, message, container_id = self._save_ingested(container, using_dummy)
 
-        if phantom.is_fail(ret_val):
+        if ret_val == APP_ERROR:
             message = f"Failed to save ingested artifacts, error msg: {message}"
             self._base_connector.debug_print(message)
             return
@@ -1233,24 +1241,24 @@ class ProcessEmail:
             if x.get("temp_directory")
         ]
 
-        return self._base_connector.set_status(phantom.APP_SUCCESS)
+        return self._base_connector.set_status(APP_SUCCESS)
 
     def _add_vault_hashes_to_dictionary(self, cef_artifact, vault_id):
         try:
-            _success, _message, vault_info = phantom_rules.vault_info(vault_id=vault_id)
+            _success, _message, vault_info_data = vault_info(vault_id=vault_id)
         except Exception:
-            return phantom.APP_ERROR, "Could not retrieve vault file"
+            return APP_ERROR, "Could not retrieve vault file"
 
-        if not vault_info:
-            return phantom.APP_ERROR, "Vault ID not found"
+        if not vault_info_data:
+            return APP_ERROR, "Vault ID not found"
 
         # The return value is a list, each item represents an item in the vault
         # matching the vault id, the info that we are looking for (the hashes)
         # will be the same for every entry, so just access the first one
         try:
-            metadata = vault_info[0].get("metadata")
+            metadata = vault_info_data[0].get("metadata")
         except Exception:
-            return phantom.APP_ERROR, "Failed to get vault item metadata"
+            return APP_ERROR, "Failed to get vault item metadata"
 
         with contextlib.suppress(Exception):
             cef_artifact["fileHashSha256"] = metadata["sha256"]
@@ -1261,7 +1269,7 @@ class ProcessEmail:
         with contextlib.suppress(Exception):
             cef_artifact["fileHashSha1"] = metadata["sha1"]
 
-        return phantom.APP_SUCCESS, "Mapped hash values"
+        return APP_SUCCESS, "Mapped hash values"
 
     def _handle_file(
         self, curr_file, vault_ids, container_id, artifact_id, run_automation=False
@@ -1290,23 +1298,21 @@ class ProcessEmail:
         file_name = self._decode_uni_string(file_name, file_name)
 
         try:
-            success, message, vault_id = phantom_rules.vault_add(
+            success, message, vault_id = vault_add(
                 file_location=local_file_path,
                 container=container_id,
                 file_name=file_name,
                 metadata=vault_attach_dict,
             )
         except Exception as e:
-            self._base_connector.debug_print(
-                phantom.APP_ERR_FILE_ADD_TO_VAULT.format(e)
-            )
-            return phantom.APP_ERROR, phantom.APP_ERROR
+            self._base_connector.debug_print(f"Error adding file to vault: {e}")
+            return APP_ERROR, APP_ERROR
 
         if not success:
             self._base_connector.debug_print(
                 f"Failed to add file to Vault: {json.dumps(message)}"
             )
-            return phantom.APP_ERROR, phantom.APP_ERROR
+            return APP_ERROR, APP_ERROR
 
         # add the vault id artifact to the container
         cef_artifact = curr_file.get("meta_info", {})
@@ -1322,7 +1328,7 @@ class ProcessEmail:
             self._add_vault_hashes_to_dictionary(cef_artifact, vault_id)
 
         if not cef_artifact:
-            return phantom.APP_SUCCESS, phantom.APP_ERROR
+            return APP_SUCCESS, APP_ERROR
 
         artifact = {}
         artifact.update(_artifact_common)
@@ -1345,7 +1351,7 @@ class ProcessEmail:
             f"save_artifact returns, value: {ret_val}, reason: {status_string}, id: {artifact_id}"
         )
 
-        return phantom.APP_SUCCESS, ret_val
+        return APP_SUCCESS, ret_val
 
     def _set_sdi(self, input_dict):
         if "source_data_identifier" in input_dict:
@@ -1372,7 +1378,7 @@ class ProcessEmail:
         if curr_email_guid:
             self._guid_to_hash[curr_email_guid] = input_dict["source_data_identifier"]
 
-        return phantom.APP_SUCCESS
+        return APP_SUCCESS
 
     def _create_dict_hash(self, input_dict):
         input_dict_str = None

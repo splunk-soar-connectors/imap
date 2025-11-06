@@ -40,7 +40,6 @@ from .imap_consts import (
     IMAP_ERROR_CONNECTIVITY_TEST,
     IMAP_ERROR_LISTING_FOLDERS,
     IMAP_ERROR_LOGGING_IN_TO_SERVER,
-    IMAP_ERROR_MESSAGE,
     IMAP_ERROR_SELECTING_FOLDER,
     IMAP_FETCH_ID_FAILED,
     IMAP_FETCH_ID_FAILED_RESULT,
@@ -164,29 +163,8 @@ class ImapHelper:
 
     def _get_error_message_from_exception(self, e):
         """Get appropriate error message from the exception"""
-        error_code = None
-        error_message = IMAP_ERROR_MESSAGE
-
         logger.error(f"Error occurred: {e}")
-
-        try:
-            if hasattr(e, "args"):
-                if len(e.args) > 1:
-                    error_code = e.args[0]
-                    error_message = e.args[1]
-                elif len(e.args) == 1:
-                    error_message = e.args[0]
-        except Exception as e:
-            logger.error(
-                f"Error occurred while fetching exception information. Details: {e!s}"
-            )
-
-        if not error_code:
-            error_text = f"Error Message: {error_message}"
-        else:
-            error_text = f"Error Code: {error_code}. Error Message: {error_message}"
-
-        return error_text
+        return str(e)
 
     @staticmethod
     def validate_integers(parameter, key, allow_zero=False):
