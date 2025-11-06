@@ -26,7 +26,7 @@ from .imap_consts import (
 )
 
 
-# Simple HttpResponse replacement
+# HttpResponse replacement
 class HttpResponse:
     """Simple HTTP response"""
 

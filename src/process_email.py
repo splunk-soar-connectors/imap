@@ -29,23 +29,20 @@ from urllib.parse import urlparse
 from bs4 import BeautifulSoup, UnicodeDammit
 from requests.structures import CaseInsensitiveDict
 
-try:
-    import phantom.app as phantom
-except ImportError:
-    from soar_sdk.shims import phantom
-    from soar_sdk.shims.phantom.app import APP_SUCCESS, APP_ERROR
+from soar_sdk.shims import phantom
+from soar_sdk.shims.phantom.app import APP_SUCCESS, APP_ERROR
 
-    phantom.APP_SUCCESS = APP_SUCCESS
-    phantom.APP_ERROR = APP_ERROR
-    phantom.is_fail = lambda x: x == APP_ERROR
-    phantom.is_success = lambda x: x == APP_SUCCESS
+phantom.APP_SUCCESS = APP_SUCCESS
+phantom.APP_ERROR = APP_ERROR
+phantom.is_fail = lambda x: x == APP_ERROR
+phantom.is_success = lambda x: x == APP_SUCCESS
 
 from . import phantom_rules
 from . import phantom_utils as ph_utils
 import contextlib
 
 
-# Simple URL validator to replace Django URLValidator
+# URL validator replacement
 class URLValidator:
     """Simple URL validator"""
 

@@ -531,7 +531,6 @@ class GetEmailParams(Params):
 
 class GetEmailOutput(ActionOutput):
     # Make all fields optional since not all emails have all headers
-    # Using Pydantic Field with default=None for optional fields
     message: str | None = None
     container_id: int | None = None
     ARC_Authentication_Results: str | None = PydanticField(
