@@ -415,6 +415,7 @@ class ImapHelper:
         process_email._base_connector = self
         process_email._folder_name = self._folder_name
         process_email._is_hex = self._is_hex
+        process_email._config = config
 
         ret_val, message, results = process_email._int_process_email(
             email_data, email_id, epoch
@@ -700,31 +701,23 @@ def get_email(params: GetEmailParams, soar: SOARClient, asset: Asset) -> GetEmai
 
             for obj in containers_and_artifacts:
                 if isinstance(obj, Container):
-                    container_dict = {
-                        "name": obj.name,
-                        "description": obj.description,
-                        "label": obj.label,
-                        "source_data_identifier": obj.source_data_identifier,
-                        "data": obj.data,
-                    }
-                    if obj.start_time:
-                        container_dict["start_time"] = obj.start_time
-                    container_id = soar._containers_api.create(container_dict)
+                    container_dict = obj.to_dict()
+                    ret_val, message, cid = app.actions_manager.save_container(
+                        container_dict
+                    )
+                    if ret_val:
+                        container_id = cid
                     break
 
             if container_id:
+                artifacts_to_save = []
                 for obj in containers_and_artifacts:
                     if isinstance(obj, Artifact):
-                        artifact_dict = {
-                            "container_id": container_id,
-                            "name": obj.name,
-                            "label": obj.label,
-                            "cef": obj.cef,
-                            "source_data_identifier": obj.source_data_identifier,
-                        }
-                        if obj.cef_types:
-                            artifact_dict["cef_types"] = obj.cef_types
-                        soar._artifacts_api.create(artifact_dict)
+                        artifact_dict = obj.to_dict()
+                        artifact_dict["container_id"] = container_id
+                        artifacts_to_save.append(artifact_dict)
+                if artifacts_to_save:
+                    app.actions_manager.save_artifacts(artifacts_to_save)
 
             message = f"Email ingested with container ID: {container_id}"
             soar.set_summary(GetEmailSummary(container_id=container_id))

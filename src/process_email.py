@@ -372,7 +372,7 @@ class ProcessEmail:
 
             artifact = {}
             artifact.update(_artifact_common)
-            artifact["source_data_identifier"] = start_index + added_artifacts
+            artifact["source_data_identifier"] = str(start_index + added_artifacts)
             artifact["cef"] = {cef_key: entry}
             artifact["name"] = artifact_name
             self._debug_print("Artifact:", artifact)
@@ -396,7 +396,7 @@ class ProcessEmail:
     ):
         added_artifacts = 0
         for artifact in email_header_artifacts:
-            artifact["source_data_identifier"] = start_index + added_artifacts
+            artifact["source_data_identifier"] = str(start_index + added_artifacts)
             artifacts.append(artifact)
             added_artifacts += 1
 
