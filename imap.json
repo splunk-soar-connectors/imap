@@ -18,7 +18,7 @@
         "On-premise Outlook Web Access v14.3.301.0, Mailbox server Microsoft Exchange v14.3.123.0",
         "OAuth, Gmail December 12, 2023"
     ],
-    "python_version": "3.9",
+    "python_version": "3.13",
     "logo": "logo_splunk.svg",
     "logo_dark": "logo_splunk_dark.svg",
     "license": "Copyright (c) 2016-2025 Splunk Inc.",
