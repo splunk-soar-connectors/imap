@@ -501,7 +501,7 @@ class ImapConnector(BaseConnector):
         folder_name = None
         resp_data = {}
 
-        ret_val, resp_data, status_code = self.get_container_info(container_id)
+        ret_val, resp_data, _status_code = self.get_container_info(container_id)
 
         if phantom.is_fail(ret_val):
             return action_result.set_status(phantom.APP_ERROR, str(resp_data)), email_data, email_id, folder_name
@@ -567,8 +567,11 @@ class ImapConnector(BaseConnector):
 
         # query for the whole email body
         try:
-            (result, data) = self._imap_conn.uid("fetch", muuid, "(INTERNALDATE RFC822)")
-        except TypeError:  # py3
+            str_muuid = str(muuid) if isinstance(muuid, int) else muuid
+            (result, data) = self._imap_conn.uid("fetch", str_muuid, "(INTERNALDATE RFC822)")
+        except TypeError as te:  # py3
+            if phantom.is_fail(self._connect_to_server_helper(action_result)):
+                return action_result.get_status()
             (result, data) = self._imap_conn.uid("fetch", str(muuid), "(INTERNALDATE RFC822)")
         except Exception as e:
             error_text = self._get_error_message_from_exception(e)
