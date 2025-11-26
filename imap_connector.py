@@ -566,20 +566,29 @@ class ImapConnector(BaseConnector):
             self.save_progress(IMAP_SELECTED_FOLDER.format(folder=folder))
 
         # query for the whole email body
+        str_muuid = str(muuid)
         try:
-            str_muuid = str(muuid) if isinstance(muuid, int) else muuid
             (result, data) = self._imap_conn.uid("fetch", str_muuid, "(INTERNALDATE RFC822)")
-        except TypeError as te:  # py3
-            if phantom.is_fail(self._connect_to_server_helper(action_result)):
-                return action_result.get_status()
-            (result, data) = self._imap_conn.uid("fetch", str(muuid), "(INTERNALDATE RFC822)")
         except Exception as e:
-            error_text = self._get_error_message_from_exception(e)
-            return (
-                action_result.set_status(phantom.APP_ERROR, IMAP_FETCH_ID_FAILED.format(muuid=muuid, excep=error_text)),
-                email_data,
-                data_time_info,
-            )
+            # Connection may have been lost, try to reconnect once and retry
+            self.debug_print(f"Error during fetch: {e}, attempting to reconnect and retry")
+            if phantom.is_fail(self._connect_to_server_helper(action_result)):
+                error_text = self._get_error_message_from_exception(e)
+                return (
+                    action_result.set_status(phantom.APP_ERROR, IMAP_FETCH_ID_FAILED.format(muuid=muuid, excep=error_text)),
+                    email_data,
+                    data_time_info,
+                )
+            # Retry after reconnection
+            try:
+                (result, data) = self._imap_conn.uid("fetch", str_muuid, "(INTERNALDATE RFC822)")
+            except Exception as retry_e:
+                error_text = self._get_error_message_from_exception(retry_e)
+                return (
+                    action_result.set_status(phantom.APP_ERROR, IMAP_FETCH_ID_FAILED.format(muuid=muuid, excep=error_text)),
+                    email_data,
+                    data_time_info,
+                )
 
         if result != "OK":
             self.save_progress(IMAP_FETCH_ID_FAILED_RESULT, muuid=muuid, result=result, data=data)
