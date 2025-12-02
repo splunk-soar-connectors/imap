@@ -344,9 +344,8 @@ class ProcessEmail:
 
     def _parse_email_headers_as_inline(self, file_data, parsed_mail, charset, email_id):
         # remove the 'Forwarded Message' from the email text and parse it
-        p = re.compile(r".*Forwarded Message.*\r\n(.*)", re.IGNORECASE)
-        email_text = p.sub(r"\1", file_data.strip())
-        mail = email.message_from_string(email_text)
+        email_text = re.sub(r"(?im)^.*forwarded message.*\r?\n", "", file_data, count=1)
+        mail = email.message_from_string(email_text.strip())
 
         # Get the array
         # email_headers = parsed_mail[PROC_EMAIL_JSON_EMAIL_HEADERS]
@@ -544,7 +543,7 @@ class ProcessEmail:
             with open(file_path, "wb") as f:
                 f.write(part_payload)
         except OSError as e:
-            error_code, error_msg = self._base_connector._get_error_message_from_exception(e)
+            _error_code, error_msg = self._base_connector._get_error_message_from_exception(e)
             try:
                 if "File name too long" in error_msg:
                     new_file_name = "ph_long_file_name_temp"
@@ -559,11 +558,11 @@ class ProcessEmail:
                     self._debug_print(f"Error occurred while adding file to Vault. Error Details: {error_msg}")
                     return
             except Exception as e:
-                error_code, error_msg = self._base_connector._get_error_message_from_exception(e)
+                _error_code, error_msg = self._base_connector._get_error_message_from_exception(e)
                 self._debug_print(f"Error occurred while adding file to Vault. Error Details: {error_msg}")
                 return
         except Exception as e:
-            error_code, error_msg = self._base_connector._get_error_message_from_exception(e)
+            _error_code, error_msg = self._base_connector._get_error_message_from_exception(e)
             self._debug_print(f"Error occurred while adding file to Vault. Error Details: {error_msg}")
             return
 
@@ -601,7 +600,7 @@ class ProcessEmail:
         self._debug_print(f"file_path: {file_path}")
 
         # is the part representing the body of the email
-        status, process_further = self._handle_if_body(content_disp, content_id, content_type, part, bodies, file_path)
+        _status, process_further = self._handle_if_body(content_disp, content_id, content_type, part, bodies, file_path)
 
         if not process_further:
             return phantom.APP_SUCCESS
@@ -966,7 +965,7 @@ class ProcessEmail:
             artifacts = container["artifacts"]
             for artifact in artifacts:
                 artifact["container_id"] = cid
-            ret_val, message, ids = self._base_connector.save_artifacts(artifacts)
+            ret_val, message, _ids = self._base_connector.save_artifacts(artifacts)
             self._base_connector.debug_print(f"save_artifacts returns, value: {ret_val}, reason: {message}")
 
         else:
@@ -1093,7 +1092,7 @@ class ProcessEmail:
 
     def _add_vault_hashes_to_dictionary(self, cef_artifact, vault_id):
         try:
-            success, message, vault_info = phantom_rules.vault_info(vault_id=vault_id)
+            _success, _message, vault_info = phantom_rules.vault_info(vault_id=vault_id)
         except Exception:
             return phantom.APP_ERROR, "Could not retrieve vault file"
 
