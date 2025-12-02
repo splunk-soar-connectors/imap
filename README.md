@@ -1,7 +1,7 @@
 # IMAP
 
 Publisher: Splunk <br>
-Connector Version: 3.4.7 <br>
+Connector Version: 3.4.8 <br>
 Product Vendor: Generic <br>
 Product Name: IMAP <br>
 Minimum Product Version: 6.3.0

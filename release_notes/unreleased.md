@@ -1,2 +1,1 @@
 **Unreleased**
-* prevent regex catastrophic backtracking in forwarded message pattern
