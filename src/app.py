@@ -421,7 +421,7 @@ def on_poll(
     helper = ImapHelper(soar, asset)
     helper._connect_to_server()
 
-    state = app.actions_manager.ingestion_state
+    state = asset.ingest_state
 
     is_poll_now = params.container_count is not None
 
