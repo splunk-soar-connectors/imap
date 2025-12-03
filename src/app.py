@@ -95,13 +95,13 @@ class Asset(BaseAsset):
         default="oldest first",
         value_list=["oldest first", "latest first"],
     )
-    first_run_max_emails: float = AssetField(
+    first_run_max_emails: int = AssetField(
         required=True,
         description="Maximum emails to poll first time for schedule and interval polling",
-        default=2000.0,
+        default=2000,
     )
-    max_emails: float = AssetField(
-        required=True, description="Maximum emails to poll", default=100.0
+    max_emails: int = AssetField(
+        required=True, description="Maximum emails to poll", default=100
     )
     use_ssl: bool = AssetField(required=False, description="Use SSL", default=False)
     extract_attachments: bool = AssetField(
@@ -431,9 +431,7 @@ def on_poll(
     else:
         is_first_run = state.get("first_run", True)
         lower_id = state.get("next_muid", 1)
-        max_emails = (
-            int(asset.first_run_max_emails) if is_first_run else int(asset.max_emails)
-        )
+        max_emails = asset.first_run_max_emails if is_first_run else asset.max_emails
 
     email_ids = helper._get_email_ids_to_process(
         max_emails, lower_id, asset.ingest_manner
