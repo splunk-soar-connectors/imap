@@ -15,6 +15,7 @@ import contextlib
 import email
 import hashlib
 import imaplib
+import json
 import socket
 import time
 from collections.abc import Iterator
@@ -29,10 +30,19 @@ from soar_sdk.abstract import SOARClient
 from soar_sdk.action_results import ActionOutput
 from soar_sdk.app import App
 from soar_sdk.asset import AssetField, BaseAsset
+from soar_sdk.auth.client import (
+    SOARAssetOAuthClient,
+    AuthorizationRequiredError,
+    TokenRefreshError,
+)
+from soar_sdk.auth.models import OAuthConfig
+from soar_sdk.extras.email import EmailProcessor, ProcessEmailContext
+from soar_sdk.extras.email.utils import decode_uni_string
 from soar_sdk.logging import getLogger
 from soar_sdk.models.artifact import Artifact
 from soar_sdk.models.container import Container
 from soar_sdk.params import OnPollParams, Param, Params
+from soar_sdk.shims.phantom.vault import PhantomVault
 
 from .imap_consts import (
     IMAP_CONNECTED_TO_SERVER,
@@ -49,8 +59,8 @@ from .imap_consts import (
     IMAP_SELECTED_FOLDER,
     IMAP_SUCCESS_CONNECTIVITY_TEST,
 )
-from .process_email import ProcessEmail, ProcessEmailContext, IMAP_APP_ID
-from soar_sdk.shims.phantom.vault import PhantomVault
+
+IMAP_APP_ID = "9f2e9f72-b0e5-45d6-92a7-09ef820476c1"
 
 logger = getLogger()
 
@@ -147,29 +157,54 @@ class ImapHelper:
         self.soar = soar
         self.asset = asset
         self._imap_conn = None
-        self._state = {}
-        self._rsh = None
-        self._asset_id = None
+        self._oauth_client = None
         self._folder_name = None
         self._is_hex = False
-
-    def debug_print(self, *args):
-        """Debug print for ProcessEmail compatibility"""
-        logger.debug(" ".join(str(arg) for arg in args))
-
-    def get_app_id(self):
-        """Return IMAP app ID for ProcessEmail compatibility"""
-        return IMAP_APP_ID
-
-    def _get_error_message_from_exception(self, e):
-        """Get appropriate error message from the exception"""
-        logger.error(f"Error occurred: {e}")
-        return str(e)
 
     def _generate_oauth_string(self, username, access_token):
         """Generates an IMAP OAuth2 authentication string"""
         auth_string = f"user={username}\1auth=Bearer {access_token}\1\1"
         return auth_string
+
+    def _get_oauth_client(self) -> SOARAssetOAuthClient:
+        """Get or create the OAuth client using SDK authentication."""
+        if self._oauth_client is not None:
+            return self._oauth_client
+
+        scopes = self.asset.scopes
+        if isinstance(scopes, str):
+            try:
+                scopes = json.loads(scopes)
+            except json.JSONDecodeError:
+                scopes = [scopes]
+
+        config = OAuthConfig(
+            client_id=self.asset.client_id,
+            client_secret=self.asset.client_secret,
+            authorization_endpoint=self.asset.auth_url,
+            token_endpoint=self.asset.token_url,
+            scope=scopes,
+        )
+
+        self._oauth_client = SOARAssetOAuthClient(
+            config=config,
+            auth_state=self.asset.auth_state,
+        )
+        return self._oauth_client
+
+    def _get_oauth_access_token(self) -> str:
+        """Get a valid OAuth access token, refreshing if necessary."""
+        oauth_client = self._get_oauth_client()
+        try:
+            token = oauth_client.get_valid_token(auto_refresh=True)
+            return token.access_token
+        except AuthorizationRequiredError:
+            raise Exception(
+                "OAuth authorization required. Please complete the OAuth flow "
+                "in the asset configuration."
+            ) from None
+        except TokenRefreshError as e:
+            raise Exception(f"OAuth token refresh failed: {e}") from None
 
     def _connect_to_server(self, first_try=True):
         """Connect to the IMAP server"""
@@ -187,20 +222,18 @@ class ImapHelper:
                 with contextlib.suppress(Exception):
                     self._imap_conn.starttls()
         except Exception as e:
-            error_text = self._get_error_message_from_exception(e)
             raise Exception(
-                IMAP_GENERAL_ERROR_MESSAGE.format(
-                    IMAP_ERROR_CONNECTING_TO_SERVER, error_text
-                )
+                IMAP_GENERAL_ERROR_MESSAGE.format(IMAP_ERROR_CONNECTING_TO_SERVER, e)
             ) from None
 
         logger.info(IMAP_CONNECTED_TO_SERVER)
 
         try:
             if is_oauth:
+                access_token = self._get_oauth_access_token()
                 auth_string = self._generate_oauth_string(
                     self.asset.username,
-                    self._state.get("oauth_token", {}).get("access_token"),
+                    access_token,
                 )
                 result, _ = self._imap_conn.authenticate(
                     "XOAUTH2", lambda _: auth_string
@@ -209,15 +242,20 @@ class ImapHelper:
                 result, _ = self._imap_conn.login(
                     self.asset.username, self.asset.password
                 )
+        except AuthorizationRequiredError:
+            raise
         except Exception as e:
-            error_text = self._get_error_message_from_exception(e)
-            if first_try and is_oauth and "Invalid credentials" in error_text:
-                self._interactive_auth_refresh()
-                return self._connect_to_server(False)
+            if first_try and is_oauth and "Invalid credentials" in str(e):
+                try:
+                    oauth_client = self._get_oauth_client()
+                    stored_token = oauth_client.get_stored_token()
+                    if stored_token and stored_token.refresh_token:
+                        oauth_client.refresh_token(stored_token.refresh_token)
+                        return self._connect_to_server(False)
+                except Exception as refresh_error:
+                    logger.error(f"OAuth token refresh failed: {refresh_error}")
             raise Exception(
-                IMAP_GENERAL_ERROR_MESSAGE.format(
-                    IMAP_ERROR_LOGGING_IN_TO_SERVER, error_text
-                )
+                IMAP_GENERAL_ERROR_MESSAGE.format(IMAP_ERROR_LOGGING_IN_TO_SERVER, e)
             ) from None
 
         if result != "OK":
@@ -228,11 +266,8 @@ class ImapHelper:
         try:
             result, _ = self._imap_conn.list()
         except Exception as e:
-            error_text = self._get_error_message_from_exception(e)
             raise Exception(
-                IMAP_GENERAL_ERROR_MESSAGE.format(
-                    IMAP_ERROR_LISTING_FOLDERS, error_text
-                )
+                IMAP_GENERAL_ERROR_MESSAGE.format(IMAP_ERROR_LISTING_FOLDERS, e)
             ) from e
 
         logger.info(IMAP_GOT_LIST_FOLDERS)
@@ -243,11 +278,9 @@ class ImapHelper:
                 f'"{imap_utf7.encode(self._folder_name).decode()}"', True
             )
         except Exception as e:
-            error_text = self._get_error_message_from_exception(e)
             raise Exception(
                 IMAP_GENERAL_ERROR_MESSAGE.format(
-                    IMAP_ERROR_SELECTING_FOLDER.format(folder=self._folder_name),
-                    error_text,
+                    IMAP_ERROR_SELECTING_FOLDER.format(folder=self._folder_name), e
                 )
             ) from e
 
@@ -266,10 +299,9 @@ class ImapHelper:
                     f'"{imap_utf7.encode(folder).decode()}"', True
                 )
             except Exception as e:
-                error_text = self._get_error_message_from_exception(e)
                 raise Exception(
                     IMAP_GENERAL_ERROR_MESSAGE.format(
-                        IMAP_ERROR_SELECTING_FOLDER.format(folder=folder), error_text
+                        IMAP_ERROR_SELECTING_FOLDER.format(folder=folder), e
                     )
                 ) from e
 
@@ -287,10 +319,7 @@ class ImapHelper:
                 "fetch", str(muuid), "(INTERNALDATE RFC822)"
             )
         except Exception as e:
-            error_text = self._get_error_message_from_exception(e)
-            raise Exception(
-                IMAP_FETCH_ID_FAILED.format(muuid=muuid, excep=error_text)
-            ) from e
+            raise Exception(IMAP_FETCH_ID_FAILED.format(muuid=muuid, excep=e)) from e
 
         if result != "OK":
             raise Exception(
@@ -323,8 +352,7 @@ class ImapHelper:
         try:
             result, data = self._imap_conn.uid("search", None, f"UID {lower_id!s}:*")
         except Exception as e:
-            error_text = self._get_error_message_from_exception(e)
-            raise Exception(f"Failed to get email IDs: {error_text}") from e
+            raise Exception(f"Failed to get email IDs: {e}") from e
 
         if result != "OK":
             raise Exception(f"Failed to get email IDs. Server response: {data}")
@@ -348,7 +376,7 @@ class ImapHelper:
     def _parse_and_create_artifacts(
         self, email_id, email_data, data_time_info, asset, config=None
     ):
-        """Parse email and yield Container and Artifacts for ingestion using ProcessEmail"""
+        """Parse email and yield Container and Artifacts for ingestion using SDK EmailProcessor"""
         epoch = int(time.mktime(datetime.now(tz=UTC).timetuple())) * 1000
 
         if data_time_info:
@@ -374,13 +402,13 @@ class ImapHelper:
             app_id=IMAP_APP_ID,
             folder_name=self._folder_name,
             is_hex=self._is_hex,
-            action_name=None,  # Not available in this context
-            app_run_id=None,  # Not available in this context
+            action_name=None,
+            app_run_id=None,
         )
-        process_email = ProcessEmail(context, config)
+        email_processor = EmailProcessor(context, config)
 
-        ret_val, message, results = process_email._int_process_email(
-            email_data, email_id, epoch
+        ret_val, message, results = email_processor._int_process_email(
+            email_data, str(email_id), epoch
         )
 
         if not ret_val:
@@ -631,18 +659,7 @@ def get_email(params: GetEmailParams, soar: SOARClient, asset: Asset) -> GetEmai
             try:
                 mail_header_dict[header[0]] = str(make_header(decode_header(header[1])))
             except Exception:
-                # Create minimal context just for decoding
-                temp_context = ProcessEmailContext(
-                    soar=soar,
-                    vault=PhantomVault(soar),
-                    app_id=IMAP_APP_ID,
-                    folder_name="",
-                    is_hex=False,
-                )
-                process_email = ProcessEmail(temp_context, {})
-                mail_header_dict[header[0]] = process_email._decode_uni_string(
-                    header[1], header[1]
-                )
+                mail_header_dict[header[0]] = decode_uni_string(header[1], header[1])
 
         data_time_info = _data_time_info
         if data_time_info is None:
