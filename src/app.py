@@ -1,4 +1,4 @@
-# Copyright (c) 2016-2025 Splunk Inc.
+# Copyright (c) 2016-2026 Splunk Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,7 +18,7 @@ import imaplib
 import json
 import socket
 import time
-from collections.abc import Iterator
+from collections.abc import Generator, Iterator
 from datetime import datetime, UTC
 from email.header import decode_header, make_header
 from pydantic import Field as PydanticField
@@ -29,7 +29,7 @@ from parse import parse
 from soar_sdk.abstract import SOARClient
 from soar_sdk.action_results import ActionOutput
 from soar_sdk.app import App
-from soar_sdk.asset import AssetField, BaseAsset
+from soar_sdk.asset import AssetField, BaseAsset, ESIngestMixin, FieldCategory
 from soar_sdk.auth.client import (
     SOARAssetOAuthClient,
     AuthorizationRequiredError,
@@ -41,7 +41,8 @@ from soar_sdk.extras.email.utils import decode_uni_string
 from soar_sdk.logging import getLogger
 from soar_sdk.models.artifact import Artifact
 from soar_sdk.models.container import Container
-from soar_sdk.params import OnPollParams, Param, Params
+from soar_sdk.models.finding import Finding
+from soar_sdk.params import OnESPollParams, OnPollParams, Param, Params
 from soar_sdk.shims.phantom.vault import PhantomVault
 
 from .imap_consts import (
@@ -65,74 +66,126 @@ IMAP_APP_ID = "9f2e9f72-b0e5-45d6-92a7-09ef820476c1"
 logger = getLogger()
 
 
-class Asset(BaseAsset):
-    server: str = AssetField(required=True, description="Server IP/Hostname")
+class Asset(BaseAsset, ESIngestMixin):
+    # Connectivity fields
+    server: str = AssetField(
+        required=True,
+        description="Server IP/Hostname",
+        category=FieldCategory.CONNECTIVITY,
+    )
     auth_type: str = AssetField(
         required=False,
         description="Authentication Mechanism to Use",
         default="Basic",
         value_list=["Basic", "OAuth"],
+        category=FieldCategory.CONNECTIVITY,
     )
-    username: str = AssetField(required=True, description="Username")
-    password: str = AssetField(required=False, description="Password", sensitive=True)
-    client_id: str = AssetField(required=False, description="OAuth Client ID")
+    username: str = AssetField(
+        required=True, description="Username", category=FieldCategory.CONNECTIVITY
+    )
+    password: str = AssetField(
+        required=False,
+        description="Password",
+        sensitive=True,
+        category=FieldCategory.CONNECTIVITY,
+    )
+    client_id: str = AssetField(
+        required=False,
+        description="OAuth Client ID",
+        category=FieldCategory.CONNECTIVITY,
+    )
     client_secret: str = AssetField(
-        required=False, description="OAuth Client Secret", sensitive=True
+        required=False,
+        description="OAuth Client Secret",
+        sensitive=True,
+        category=FieldCategory.CONNECTIVITY,
     )
     auth_url: str = AssetField(
         required=False,
         description="OAuth Authorization URL",
         default="https://accounts.google.com/o/oauth2/auth",
+        category=FieldCategory.CONNECTIVITY,
     )
     token_url: str = AssetField(
         required=False,
         description="OAuth Token URL",
         default="https://oauth2.googleapis.com/token",
+        category=FieldCategory.CONNECTIVITY,
     )
     scopes: str = AssetField(
         required=False,
         description="OAuth API Scope (JSON formatted list)",
         default='["https://mail.google.com/"]',
+        category=FieldCategory.CONNECTIVITY,
     )
+    use_ssl: bool = AssetField(
+        required=False,
+        description="Use SSL",
+        default=False,
+        category=FieldCategory.CONNECTIVITY,
+    )
+
+    # Ingestion fields
     folder: str = AssetField(
         required=False,
         description="Folder to ingest mails from (default is inbox)",
         default="inbox",
+        category=FieldCategory.INGEST,
     )
     ingest_manner: str = AssetField(
         required=True,
         description="How to ingest",
         default="oldest first",
         value_list=["oldest first", "latest first"],
+        category=FieldCategory.INGEST,
     )
     first_run_max_emails: int = AssetField(
         required=True,
         description="Maximum emails to poll first time for schedule and interval polling",
         default=2000,
+        category=FieldCategory.INGEST,
     )
     max_emails: int = AssetField(
-        required=True, description="Maximum emails to poll", default=100
+        required=True,
+        description="Maximum emails to poll",
+        default=100,
+        category=FieldCategory.INGEST,
     )
-    use_ssl: bool = AssetField(required=False, description="Use SSL", default=False)
     extract_attachments: bool = AssetField(
-        required=False, description="Extract Attachments", default=True
+        required=False,
+        description="Extract Attachments",
+        default=True,
+        category=FieldCategory.INGEST,
     )
     extract_urls: bool = AssetField(
-        required=False, description="Extract URLs", default=True
+        required=False,
+        description="Extract URLs",
+        default=True,
+        category=FieldCategory.INGEST,
     )
     extract_ips: bool = AssetField(
-        required=False, description="Extract IPs", default=True
+        required=False,
+        description="Extract IPs",
+        default=True,
+        category=FieldCategory.INGEST,
     )
     extract_domains: bool = AssetField(
-        required=False, description="Extract Domain Names", default=True
+        required=False,
+        description="Extract Domain Names",
+        default=True,
+        category=FieldCategory.INGEST,
     )
     extract_hashes: bool = AssetField(
-        required=False, description="Extract Hashes", default=True
+        required=False,
+        description="Extract Hashes",
+        default=True,
+        category=FieldCategory.INGEST,
     )
     add_body_to_header_artifacts: bool = AssetField(
         required=False,
         description="Add email body to the Email Artifact",
         default=False,
+        category=FieldCategory.INGEST,
     )
 
 
@@ -484,6 +537,72 @@ def on_poll(
     if email_ids and not is_poll_now:
         state["next_muid"] = int(email_ids[-1]) + 1
         state["first_run"] = False
+
+
+@app.on_es_poll()
+def on_es_poll(
+    params: OnESPollParams, soar: SOARClient, asset: Asset
+) -> Generator[Finding, int | None]:
+    """Poll for new emails and create ES findings for each email"""
+    helper = ImapHelper(soar, asset)
+    helper._connect_to_server()
+
+    state = asset.ingest_state
+
+    is_first_run = state.get("es_first_run", True)
+    lower_id = state.get("es_next_muid", 1)
+    max_emails = asset.first_run_max_emails if is_first_run else asset.max_emails
+
+    email_ids = helper._get_email_ids_to_process(
+        max_emails, lower_id, asset.ingest_manner
+    )
+
+    if not email_ids:
+        logger.info("No new emails to ingest for ES")
+        return
+
+    for email_id in email_ids:
+        try:
+            email_data, data_time_info = helper._get_email_data(email_id)
+            mail = email.message_from_string(email_data)
+
+            subject = ""
+            headers = mail.__dict__.get("_headers", [])
+            for header in headers:
+                if header[0].lower() == "subject":
+                    try:
+                        subject = str(make_header(decode_header(header[1])))
+                    except (UnicodeDecodeError, UnicodeEncodeError, LookupError):
+                        subject = decode_uni_string(header[1], header[1])
+                elif header[0].lower() == "from":
+                    try:
+                        str(make_header(decode_header(header[1])))
+                    except (UnicodeDecodeError, UnicodeEncodeError, LookupError):
+                        decode_uni_string(header[1], header[1])
+
+            container_id = yield Finding(
+                rule_title=f"Email: {subject[:100]}"
+                if subject
+                else f"Email ID: {email_id}",
+                security_domain=asset.es_security_domain,
+                urgency=asset.es_urgency,
+            )
+
+            if container_id:
+                soar.vault.create_attachment(
+                    container_id,
+                    file_content=email_data,
+                    file_name=f"email_{email_id}.eml",
+                    metadata={"type": "email", "email_id": str(email_id)},
+                )
+
+        except Exception as e:
+            logger.error(f"Error processing email {email_id} for ES: {e}")
+            continue
+
+    if email_ids:
+        state["es_next_muid"] = int(email_ids[-1]) + 1
+        state["es_first_run"] = False
 
 
 class GetEmailSummary(ActionOutput):

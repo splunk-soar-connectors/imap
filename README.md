@@ -304,6 +304,8 @@ This table lists the configuration variables required to operate IMAP. These var
 
 VARIABLE | REQUIRED | TYPE | DESCRIPTION
 -------- | -------- | ---- | -----------
+**es_security_domain** | optional | string | Security domain for ES findings |
+**es_urgency** | optional | string | Urgency level for ES findings |
 **server** | required | string | Server IP/Hostname |
 **auth_type** | optional | string | Authentication Mechanism to Use |
 **username** | required | string | Username |
@@ -313,11 +315,11 @@ VARIABLE | REQUIRED | TYPE | DESCRIPTION
 **auth_url** | optional | string | OAuth Authorization URL |
 **token_url** | optional | string | OAuth Token URL |
 **scopes** | optional | string | OAuth API Scope (JSON formatted list) |
+**use_ssl** | optional | boolean | Use SSL |
 **folder** | optional | string | Folder to ingest mails from (default is inbox) |
 **ingest_manner** | required | string | How to ingest |
 **first_run_max_emails** | required | numeric | Maximum emails to poll first time for schedule and interval polling |
 **max_emails** | required | numeric | Maximum emails to poll |
-**use_ssl** | optional | boolean | Use SSL |
 **extract_attachments** | optional | boolean | Extract Attachments |
 **extract_urls** | optional | boolean | Extract URLs |
 **extract_ips** | optional | boolean | Extract IPs |
@@ -329,6 +331,7 @@ VARIABLE | REQUIRED | TYPE | DESCRIPTION
 
 [test connectivity](#action-test-connectivity) - Test connectivity to IMAP server <br>
 [on poll](#action-on-poll) - Poll for new emails and ingest as containers/artifacts <br>
+[on es poll](#action-on-es-poll) - Poll for new emails and create ES findings for each email <br>
 [get email](#action-get-email) - Get an email from the server or container
 
 ## action: 'test connectivity'
@@ -371,6 +374,29 @@ PARAMETER | REQUIRED | DESCRIPTION | TYPE | CONTAINS
 **container_count** | optional | Maximum number of container records to query for. | numeric | |
 **artifact_count** | optional | Maximum number of artifact records to query for. | numeric | |
 **container_id** | optional | Comma-separated list of container IDs to limit the ingestion to. | string | |
+
+#### Action Output
+
+No Output
+
+## action: 'on es poll'
+
+Poll for new emails and create ES findings for each email
+
+Type: **ingest** <br>
+Read only: **True**
+
+Callback action for the on_es_poll ingest functionality
+
+#### Action Parameters
+
+PARAMETER | REQUIRED | DESCRIPTION | TYPE | CONTAINS
+--------- | -------- | ----------- | ---- | --------
+**start_time** | optional | Start of time range, in epoch time (milliseconds). | numeric | |
+**end_time** | optional | End of time range, in epoch time (milliseconds). | numeric | |
+**container_count** | optional | Maximum number of container records to query for. | numeric | |
+**es_base_url** | required | Base URL for the Splunk Enterprise Security API | string | |
+**es_session_key** | required | Session token for the Splunk Enterprise Security API | string | |
 
 #### Action Output
 
@@ -455,7 +481,7 @@ ______________________________________________________________________
 
 Auto-generated Splunk SOAR Connector documentation.
 
-Copyright 2025 Splunk Inc.
+Copyright 2026 Splunk Inc.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
