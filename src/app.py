@@ -572,12 +572,12 @@ def on_es_poll(
                 if header[0].lower() == "subject":
                     try:
                         subject = str(make_header(decode_header(header[1])))
-                    except Exception:
+                    except (UnicodeDecodeError, UnicodeEncodeError, LookupError):
                         subject = decode_uni_string(header[1], header[1])
                 elif header[0].lower() == "from":
                     try:
                         str(make_header(decode_header(header[1])))
-                    except Exception:
+                    except (UnicodeDecodeError, UnicodeEncodeError, LookupError):
                         decode_uni_string(header[1], header[1])
 
             container_id = yield Finding(
