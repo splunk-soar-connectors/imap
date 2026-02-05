@@ -29,7 +29,7 @@ from parse import parse
 from soar_sdk.abstract import SOARClient
 from soar_sdk.action_results import ActionOutput
 from soar_sdk.app import App
-from soar_sdk.asset import AssetField, BaseAsset, ESIngestMixin, FieldCategory
+from soar_sdk.asset import AssetField, BaseAsset, FieldCategory
 from soar_sdk.auth.client import (
     SOARAssetOAuthClient,
     AuthorizationRequiredError,
@@ -41,7 +41,7 @@ from soar_sdk.extras.email.utils import decode_uni_string
 from soar_sdk.logging import getLogger
 from soar_sdk.models.artifact import Artifact
 from soar_sdk.models.container import Container
-from soar_sdk.models.finding import Finding
+from soar_sdk.models.finding import Finding, FindingAttachment
 from soar_sdk.params import OnESPollParams, OnPollParams, Param, Params
 from soar_sdk.shims.phantom.vault import PhantomVault
 
@@ -66,7 +66,7 @@ IMAP_APP_ID = "9f2e9f72-b0e5-45d6-92a7-09ef820476c1"
 logger = getLogger()
 
 
-class Asset(BaseAsset, ESIngestMixin):
+class Asset(BaseAsset):
     # Connectivity fields
     server: str = AssetField(
         required=True,
@@ -543,7 +543,7 @@ def on_poll(
 def on_es_poll(
     params: OnESPollParams, soar: SOARClient, asset: Asset
 ) -> Generator[Finding, int | None]:
-    """Poll for new emails and create ES findings for each email"""
+    """Poll for new emails and create ES findings for each email."""
     helper = ImapHelper(soar, asset)
     helper._connect_to_server()
 
@@ -563,7 +563,7 @@ def on_es_poll(
 
     for email_id in email_ids:
         try:
-            email_data, data_time_info = helper._get_email_data(email_id)
+            email_data, _ = helper._get_email_data(email_id)
             mail = email.message_from_string(email_data)
 
             subject = ""
@@ -574,27 +574,20 @@ def on_es_poll(
                         subject = str(make_header(decode_header(header[1])))
                     except (UnicodeDecodeError, UnicodeEncodeError, LookupError):
                         subject = decode_uni_string(header[1], header[1])
-                elif header[0].lower() == "from":
-                    try:
-                        str(make_header(decode_header(header[1])))
-                    except (UnicodeDecodeError, UnicodeEncodeError, LookupError):
-                        decode_uni_string(header[1], header[1])
 
-            container_id = yield Finding(
+            yield Finding(
                 rule_title=f"Email: {subject[:100]}"
                 if subject
                 else f"Email ID: {email_id}",
-                security_domain=asset.es_security_domain,
-                urgency=asset.es_urgency,
+                attachments=[
+                    FindingAttachment(
+                        file_name=f"email_{email_id}.eml",
+                        data=email_data.encode("utf-8")
+                        if isinstance(email_data, str)
+                        else email_data,
+                    )
+                ],
             )
-
-            if container_id:
-                soar.vault.create_attachment(
-                    container_id,
-                    file_content=email_data,
-                    file_name=f"email_{email_id}.eml",
-                    metadata={"type": "email", "email_id": str(email_id)},
-                )
 
         except Exception as e:
             logger.error(f"Error processing email {email_id} for ES: {e}")
