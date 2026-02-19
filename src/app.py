@@ -37,6 +37,7 @@ from soar_sdk.auth.client import (
 )
 from soar_sdk.auth.models import OAuthConfig
 from soar_sdk.extras.email import EmailProcessor, ProcessEmailContext
+from soar_sdk.extras.email.rfc5322 import extract_rfc5322_email_data
 from soar_sdk.extras.email.utils import decode_uni_string
 from soar_sdk.logging import getLogger
 from soar_sdk.models.artifact import Artifact
@@ -508,7 +509,9 @@ def on_poll(
 
     if is_poll_now:
         lower_id = 1
-        max_emails = params.container_count if params.container_count > 0 else 100
+        max_emails = (
+            params.container_count if params.container_count > 0 else asset.max_emails
+        )
     else:
         is_first_run = state.get("first_run", True)
         lower_id = state.get("next_muid", 1)
@@ -548,10 +551,17 @@ def on_es_poll(
     helper._connect_to_server()
 
     state = asset.ingest_state
+    is_poll_now = params.container_count is not None
 
     is_first_run = state.get("es_first_run", True)
     lower_id = state.get("es_next_muid", 1)
-    max_emails = asset.first_run_max_emails if is_first_run else asset.max_emails
+
+    if is_poll_now:
+        max_emails = (
+            params.container_count if params.container_count > 0 else asset.max_emails
+        )
+    else:
+        max_emails = asset.first_run_max_emails if is_first_run else asset.max_emails
 
     email_ids = helper._get_email_ids_to_process(
         max_emails, lower_id, asset.ingest_manner
@@ -564,21 +574,21 @@ def on_es_poll(
     for email_id in email_ids:
         try:
             email_data, _ = helper._get_email_data(email_id)
-            mail = email.message_from_string(email_data)
+            parsed = extract_rfc5322_email_data(email_data, str(email_id))
+            subject = parsed.headers.subject or ""
+            email_headers = {k: v for k, v in parsed.to_dict()["headers"].items() if v}
+            email_body = parsed.body.plain_text or parsed.body.html
 
-            subject = ""
-            headers = mail.__dict__.get("_headers", [])
-            for header in headers:
-                if header[0].lower() == "subject":
-                    try:
-                        subject = str(make_header(decode_header(header[1])))
-                    except (UnicodeDecodeError, UnicodeEncodeError, LookupError):
-                        subject = decode_uni_string(header[1], header[1])
+            state["es_next_muid"] = int(email_id) + 1
+            if not is_poll_now:
+                state["es_first_run"] = False
 
             yield Finding(
                 rule_title=f"Email: {subject[:100]}"
                 if subject
                 else f"Email ID: {email_id}",
+                email_headers=email_headers or None,
+                email_body=email_body,
                 attachments=[
                     FindingAttachment(
                         file_name=f"email_{email_id}.eml",
@@ -592,10 +602,6 @@ def on_es_poll(
         except Exception as e:
             logger.error(f"Error processing email {email_id} for ES: {e}")
             continue
-
-    if email_ids:
-        state["es_next_muid"] = int(email_ids[-1]) + 1
-        state["es_first_run"] = False
 
 
 class GetEmailSummary(ActionOutput):
