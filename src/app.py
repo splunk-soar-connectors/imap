@@ -574,7 +574,9 @@ def on_es_poll(
     for email_id in email_ids:
         try:
             email_data, _ = helper._get_email_data(email_id)
-            parsed = extract_rfc5322_email_data(email_data, str(email_id))
+            parsed = extract_rfc5322_email_data(
+                email_data, str(email_id), include_attachment_content=True
+            )
             subject = parsed.headers.subject or ""
             email_headers = {k: v for k, v in parsed.to_dict()["headers"].items() if v}
             email_body = parsed.body.plain_text or parsed.body.html
@@ -583,20 +585,34 @@ def on_es_poll(
             if not is_poll_now:
                 state["es_first_run"] = False
 
+            raw_eml = (
+                email_data.encode("utf-8")
+                if isinstance(email_data, str)
+                else email_data
+            )
+            attachments = [
+                FindingAttachment(
+                    file_name=f"email_{email_id}.eml",
+                    data=raw_eml,
+                )
+            ]
+            for att in parsed.attachments:
+                if att.content:
+                    attachments.append(
+                        FindingAttachment(
+                            file_name=att.filename,
+                            data=att.content,
+                            is_raw_email=False,
+                        )
+                    )
+
             yield Finding(
                 rule_title=f"Email: {subject[:100]}"
                 if subject
                 else f"Email ID: {email_id}",
                 email_headers=email_headers or None,
                 email_body=email_body,
-                attachments=[
-                    FindingAttachment(
-                        file_name=f"email_{email_id}.eml",
-                        data=email_data.encode("utf-8")
-                        if isinstance(email_data, str)
-                        else email_data,
-                    )
-                ],
+                attachments=attachments,
             )
 
         except Exception as e:
