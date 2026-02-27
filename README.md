@@ -304,8 +304,6 @@ This table lists the configuration variables required to operate IMAP. These var
 
 VARIABLE | REQUIRED | TYPE | DESCRIPTION
 -------- | -------- | ---- | -----------
-**es_security_domain** | optional | string | Security domain for ES findings |
-**es_urgency** | optional | string | Urgency level for ES findings |
 **server** | required | string | Server IP/Hostname |
 **auth_type** | optional | string | Authentication Mechanism to Use |
 **username** | required | string | Username |
@@ -331,7 +329,7 @@ VARIABLE | REQUIRED | TYPE | DESCRIPTION
 
 [test connectivity](#action-test-connectivity) - Test connectivity to IMAP server <br>
 [on poll](#action-on-poll) - Poll for new emails and ingest as containers/artifacts <br>
-[on es poll](#action-on-es-poll) - Poll for new emails and create ES findings for each email <br>
+[on es poll](#action-on-es-poll) - Poll for new emails and create ES findings for each email. <br>
 [get email](#action-get-email) - Get an email from the server or container
 
 ## action: 'test connectivity'
@@ -381,7 +379,7 @@ No Output
 
 ## action: 'on es poll'
 
-Poll for new emails and create ES findings for each email
+Poll for new emails and create ES findings for each email.
 
 Type: **ingest** <br>
 Read only: **True**
@@ -394,9 +392,7 @@ PARAMETER | REQUIRED | DESCRIPTION | TYPE | CONTAINS
 --------- | -------- | ----------- | ---- | --------
 **start_time** | optional | Start of time range, in epoch time (milliseconds). | numeric | |
 **end_time** | optional | End of time range, in epoch time (milliseconds). | numeric | |
-**container_count** | optional | Maximum number of container records to query for. | numeric | |
-**es_base_url** | required | Base URL for the Splunk Enterprise Security API | string | |
-**es_session_key** | required | Session token for the Splunk Enterprise Security API | string | |
+**container_count** | optional | Maximum number of findings to query for. | numeric | |
 
 #### Action Output
 

@@ -42,7 +42,7 @@ from soar_sdk.extras.email.utils import decode_uni_string
 from soar_sdk.logging import getLogger
 from soar_sdk.models.artifact import Artifact
 from soar_sdk.models.container import Container
-from soar_sdk.models.finding import Finding, FindingAttachment
+from soar_sdk.models.finding import Finding, FindingAttachment, FindingEmail
 from soar_sdk.params import OnESPollParams, OnPollParams, Param, Params
 from soar_sdk.shims.phantom.vault import PhantomVault
 
@@ -573,51 +573,49 @@ def on_es_poll(
 
     for email_id in email_ids:
         try:
-            email_data, _ = helper._get_email_data(email_id)
-            parsed = extract_rfc5322_email_data(
-                email_data, str(email_id), include_attachment_content=True
+            raw_email, _data_time_info = helper._get_email_data(email_id)
+            email_data = extract_rfc5322_email_data(
+                raw_email, str(email_id), include_attachment_content=True
             )
-            subject = parsed.headers.subject or ""
-            email_headers = {k: v for k, v in parsed.to_dict()["headers"].items() if v}
-            email_body = parsed.body.plain_text or parsed.body.html
-
-            state["es_next_muid"] = int(email_id) + 1
-            if not is_poll_now:
-                state["es_first_run"] = False
-
-            raw_eml = (
-                email_data.encode("utf-8")
-                if isinstance(email_data, str)
-                else email_data
-            )
-            attachments = [
-                FindingAttachment(
-                    file_name=f"email_{email_id}.eml",
-                    data=raw_eml,
-                )
-            ]
-            for att in parsed.attachments:
-                if att.content:
-                    attachments.append(
-                        FindingAttachment(
-                            file_name=att.filename,
-                            data=att.content,
-                            is_raw_email=False,
-                        )
-                    )
-
-            yield Finding(
-                rule_title=f"Email: {subject[:100]}"
-                if subject
-                else f"Email ID: {email_id}",
-                email_headers=email_headers or None,
-                email_body=email_body,
-                attachments=attachments,
-            )
-
         except Exception as e:
             logger.error(f"Error processing email {email_id} for ES: {e}")
             continue
+
+        subject = email_data.headers.subject or ""
+        body_text = email_data.body.plain_text or email_data.body.html or ""
+        email_headers = {k: v for k, v in email_data.to_dict()["headers"].items() if v}
+
+        raw_eml = raw_email.encode("utf-8") if isinstance(raw_email, str) else raw_email
+        attachments: list[FindingAttachment] = [
+            FindingAttachment(
+                file_name=f"email_{email_id}.eml",
+                data=raw_eml,
+                is_raw_email=True,
+            )
+        ]
+        for att in email_data.attachments:
+            if att.content:
+                attachments.append(
+                    FindingAttachment(
+                        file_name=att.filename,
+                        data=att.content,
+                        is_raw_email=False,
+                    )
+                )
+
+        state["es_next_muid"] = int(email_id) + 1
+        if not is_poll_now:
+            state["es_first_run"] = False
+
+        yield Finding(
+            rule_title=subject[:100] if subject else f"Email ID: {email_id}",
+            email=FindingEmail(
+                headers=email_headers or None,
+                body=body_text or None,
+                urls=email_data.urls or None,
+            ),
+            attachments=attachments,
+        )
 
 
 class GetEmailSummary(ActionOutput):
