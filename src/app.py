@@ -30,6 +30,7 @@ from soar_sdk.abstract import SOARClient
 from soar_sdk.action_results import ActionOutput
 from soar_sdk.app import App
 from soar_sdk.asset import AssetField, BaseAsset, FieldCategory
+from soar_sdk.auth import AuthorizationCodeFlow
 from soar_sdk.auth.client import (
     SOARAssetOAuthClient,
     AuthorizationRequiredError,
@@ -45,6 +46,7 @@ from soar_sdk.models.container import Container
 from soar_sdk.models.finding import Finding, FindingAttachment, FindingEmail
 from soar_sdk.params import OnESPollParams, OnPollParams, Param, Params
 from soar_sdk.shims.phantom.vault import PhantomVault
+from soar_sdk.webhooks.models import WebhookRequest, WebhookResponse
 
 from .imap_consts import (
     IMAP_CONNECTED_TO_SERVER,
@@ -201,7 +203,50 @@ app = App(
     appid="9f2e9f72-b0e5-45d6-92a7-09ef820476c1",
     fips_compliant=True,
     asset_cls=Asset,
-)
+).enable_webhooks(default_requires_auth=False)
+
+
+@app.webhook("result")
+def handle_oauth_result(request: WebhookRequest[Asset]) -> WebhookResponse:
+    query_params = {k: v[0] if v else "" for k, v in request.query.items()}
+
+    if "error" in query_params:
+        reason = query_params.get("error_description", "Unknown error")
+        return WebhookResponse.text_response(
+            content=f"Authorization failed: {reason}",
+            status_code=400,
+        )
+
+    code = query_params.get("code")
+    if not code:
+        return WebhookResponse.text_response(
+            content="Missing authorization code",
+            status_code=400,
+        )
+
+    scopes = request.asset.scopes
+    if isinstance(scopes, str):
+        try:
+            scopes = json.loads(scopes)
+        except json.JSONDecodeError:
+            scopes = [scopes]
+
+    oauth_client = SOARAssetOAuthClient(
+        OAuthConfig(
+            client_id=request.asset.client_id,
+            client_secret=request.asset.client_secret,
+            authorization_endpoint=request.asset.auth_url,
+            token_endpoint=request.asset.token_url,
+            scope=scopes,
+        ),
+        request.asset.auth_state,
+    )
+    oauth_client.set_authorization_code(code)
+
+    return WebhookResponse.text_response(
+        content="Authorization successful! You can close this window.",
+        status_code=200,
+    )
 
 
 class ImapHelper:
@@ -260,7 +305,7 @@ class ImapHelper:
         except TokenRefreshError as e:
             raise Exception(f"OAuth token refresh failed: {e}") from None
 
-    def _connect_to_server(self, first_try=True):
+    def _connect_to_server(self, first_try=True, access_token=None):
         """Connect to the IMAP server"""
         is_oauth = self.asset.auth_type == "OAuth"
         use_ssl = self.asset.use_ssl
@@ -284,7 +329,8 @@ class ImapHelper:
 
         try:
             if is_oauth:
-                access_token = self._get_oauth_access_token()
+                if access_token is None:
+                    access_token = self._get_oauth_access_token()
                 auth_string = self._generate_oauth_string(
                     self.asset.username,
                     access_token,
@@ -483,9 +529,47 @@ class ImapHelper:
 @app.test_connectivity()
 def test_connectivity(soar: SOARClient, asset: Asset) -> None:
     """Test connectivity to IMAP server"""
+    access_token = None
+    if asset.auth_type == "OAuth":
+        redirect_uri = app.get_webhook_url("result")
+        logger.info(f"OAuth Redirect URI: {redirect_uri}")
+
+        scopes = asset.scopes
+        if isinstance(scopes, str):
+            try:
+                scopes = json.loads(scopes)
+            except json.JSONDecodeError:
+                scopes = [scopes]
+
+        flow = AuthorizationCodeFlow(
+            asset.auth_state,
+            str(soar.get_asset_id()),
+            client_id=asset.client_id,
+            client_secret=asset.client_secret,
+            authorization_endpoint=asset.auth_url,
+            token_endpoint=asset.token_url,
+            redirect_uri=redirect_uri,
+            scope=scopes,
+            extra_auth_params={
+                "access_type": "offline",
+                "prompt": "consent",
+            },
+        )
+
+        auth_url = flow.get_authorization_url()
+        logger.info(
+            "Please connect to the following URL from a different tab "
+            "to continue the connectivity process"
+        )
+        logger.info(auth_url)
+
+        token = flow.wait_for_authorization()
+        access_token = token.access_token
+        logger.info("OAuth authorization completed successfully")
+
     helper = ImapHelper(soar, asset)
     try:
-        helper._connect_to_server()
+        helper._connect_to_server(access_token=access_token)
         soar.set_message(IMAP_SUCCESS_CONNECTIVITY_TEST)
         logger.info(IMAP_SUCCESS_CONNECTIVITY_TEST)
     except Exception as e:
