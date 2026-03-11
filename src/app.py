@@ -270,6 +270,10 @@ class ImapHelper:
         if self._oauth_client is not None:
             return self._oauth_client
 
+        # Force reload to pick up tokens stored by a different context (webhook/flow).
+        # Workaround for SDK _load_state() not using force_reload.
+        self.asset.auth_state.get_all(force_reload=True)
+
         scopes = self.asset.scopes
         if isinstance(scopes, str):
             try:
@@ -565,6 +569,21 @@ def test_connectivity(soar: SOARClient, asset: Asset) -> None:
 
         token = flow.wait_for_authorization()
         access_token = token.access_token
+
+        # Re-persist the token. The SDK's fetch_token_with_authorization_code
+        # overwrites the stored token with stale state when clearing the session.
+        oauth_client = SOARAssetOAuthClient(
+            OAuthConfig(
+                client_id=asset.client_id,
+                client_secret=asset.client_secret,
+                authorization_endpoint=asset.auth_url,
+                token_endpoint=asset.token_url,
+                scope=scopes,
+            ),
+            asset.auth_state,
+        )
+        oauth_client._store_token(token)
+
         logger.info("OAuth authorization completed successfully")
 
     helper = ImapHelper(soar, asset)
