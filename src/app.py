@@ -128,7 +128,7 @@ class Asset(BaseAsset):
 
     # Ingestion fields
     folder: str = AssetField(
-        required=False,
+        required=True,
         description="Folder to ingest mails from (default is inbox)",
         default="inbox",
         category=FieldCategory.INGEST,
