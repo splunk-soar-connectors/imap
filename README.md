@@ -83,7 +83,7 @@ mentioned above. You can edit the client listed under **OAuth 2.0 Client IDs** o
 **Credentials** page to add a redirect url. After doing so, the URL should look something like
 this:
 
-https://\<phantom_host>/rest/handler/imap_9f2e9f72-b0e5-45d6-92a7-09ef820476c1/\<asset_name>
+https://\<phantom_host>:3500/webhook/imap_9f2e9f72-b0e5-45d6-92a7-09ef820476c1/\<asset_name>/result
 
 Additionally, updating the Base URL in the Phantom Company Settings is also required. Navigate to
 **Administration > Company Settings > Info** to configure the Base URL For Phantom Appliance.
