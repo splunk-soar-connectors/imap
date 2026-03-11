@@ -1,7 +1,7 @@
 # IMAP
 
 Publisher: Splunk <br>
-Connector Version: 3.4.7 <br>
+Connector Version: 3.4.8 <br>
 Product Vendor: Generic <br>
 Product Name: IMAP <br>
 Minimum Product Version: 7.0.0
@@ -314,7 +314,7 @@ VARIABLE | REQUIRED | TYPE | DESCRIPTION
 **token_url** | optional | string | OAuth Token URL |
 **scopes** | optional | string | OAuth API Scope (JSON formatted list) |
 **use_ssl** | optional | boolean | Use SSL |
-**folder** | optional | string | Folder to ingest mails from (default is inbox) |
+**folder** | required | string | Folder to ingest mails from (default is inbox) |
 **ingest_manner** | required | string | How to ingest |
 **first_run_max_emails** | required | numeric | Maximum emails to poll first time for schedule and interval polling |
 **max_emails** | required | numeric | Maximum emails to poll |

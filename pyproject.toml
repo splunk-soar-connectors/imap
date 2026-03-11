@@ -1,6 +1,6 @@
 [project]
 name = "imap"
-version = "3.4.7"
+version = "3.4.8"
 description = "This app supports email ingestion and various investigative actions over IMAP"
 license = "Copyright (c) 2016-2025 Splunk Inc."
 requires-python = ">=3.13, <3.15"
@@ -12,7 +12,7 @@ dependencies = [
     "parse>=1.20.2",
     "python-dateutil>=2.9.0.post0",
     "python-magic>=0.4.27",
-    "splunk-soar-sdk>=3.14.0",
+    "splunk-soar-sdk>=3.15.1",
 ]
 
 # [tool.uv.sources]
