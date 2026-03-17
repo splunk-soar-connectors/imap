@@ -21,6 +21,8 @@ import time
 from collections.abc import Generator, Iterator
 from datetime import datetime, UTC
 from email.header import decode_header, make_header
+from email.utils import getaddresses, parseaddr
+
 from pydantic import Field as PydanticField
 
 from dateutil import tz
@@ -38,12 +40,17 @@ from soar_sdk.auth.client import (
 )
 from soar_sdk.auth.models import OAuthConfig
 from soar_sdk.extras.email import EmailProcessor, ProcessEmailContext
-from soar_sdk.extras.email.rfc5322 import extract_rfc5322_email_data
+from soar_sdk.extras.email.email_data import EmailData, extract_email_data
 from soar_sdk.extras.email.utils import decode_uni_string
 from soar_sdk.logging import getLogger
 from soar_sdk.models.artifact import Artifact
 from soar_sdk.models.container import Container
-from soar_sdk.models.finding import Finding, FindingAttachment, FindingEmail
+from soar_sdk.models.finding import (
+    Finding,
+    FindingAttachment,
+    FindingEmail,
+    FindingEmailReporter,
+)
 from soar_sdk.params import OnESPollParams, OnPollParams, Param, Params
 from soar_sdk.shims.phantom.vault import PhantomVault
 from soar_sdk.webhooks.models import WebhookRequest, WebhookResponse
@@ -67,6 +74,204 @@ from .imap_consts import (
 IMAP_APP_ID = "9f2e9f72-b0e5-45d6-92a7-09ef820476c1"
 
 logger = getLogger()
+
+_EML_CONTENT_TYPES = {"message/rfc822"}
+
+
+def _is_forwarded_email_attachment(filename: str, content_type: str | None) -> bool:
+    lower = filename.lower()
+    if lower.endswith((".eml", ".msg")):
+        return True
+    return content_type is not None and content_type.lower() in _EML_CONTENT_TYPES
+
+
+def _parse_attached_email(content: bytes, email_id: str) -> EmailData | None:
+    """Parse an attached .eml or .msg file into EmailData."""
+    return extract_email_data(content, email_id, include_attachment_content=True)
+
+
+def _extract_address(header_value: str | None) -> str | None:
+    """Extract a single clean email address from a header value."""
+    if not header_value:
+        return None
+    _, addr = parseaddr(header_value)
+    return addr or None
+
+
+def _extract_addresses(header_value: str | None) -> str | list[str] | None:
+    """Extract email address(es) from a header value.
+
+    Returns a single string for one address, a list for multiple, or None.
+    """
+    if not header_value:
+        return None
+    pairs = getaddresses([header_value])
+    addrs = [addr for _, addr in pairs if addr]
+    if not addrs:
+        return None
+    if len(addrs) == 1:
+        return addrs[0]
+    return addrs
+
+
+def _build_reporter(outer: EmailData, email_id: str) -> FindingEmailReporter | None:
+    """Build a FindingEmailReporter from the outer/wrapper email."""
+    from_addr = _extract_address(outer.headers.from_address)
+    if not from_addr:
+        return None
+
+    data: dict = {"from": from_addr}
+
+    to = _extract_addresses(outer.headers.to)
+    if to:
+        data["to"] = to
+    cc = _extract_addresses(outer.headers.cc)
+    if cc:
+        data["cc"] = cc
+    bcc = _extract_addresses(outer.headers.bcc)
+    if bcc:
+        data["bcc"] = bcc
+    if outer.headers.subject:
+        data["subject"] = outer.headers.subject
+    if outer.headers.message_id:
+        data["message_id"] = outer.headers.message_id
+    data["id"] = str(email_id)
+
+    outer_body = outer.body.plain_text or outer.body.html or ""
+    if outer_body:
+        data["body"] = outer_body
+
+    if outer.headers.date:
+        data["date"] = outer.headers.date
+
+    return FindingEmailReporter(**data)
+
+
+def _find_forwarded_attachment(
+    outer_data: EmailData, raw_email: str
+) -> tuple[bytes, str] | None:
+    """Find a forwarded .eml/.msg attachment in the email.
+
+    Checks both parsed attachments and raw MIME parts (for message/rfc822
+    parts that the SDK parser does not extract as attachments).
+    """
+    for att in outer_data.attachments:
+        if att.content and _is_forwarded_email_attachment(
+            att.filename, att.content_type
+        ):
+            return att.content, att.filename
+
+    # The SDK skips message/rfc822 MIME parts during attachment extraction,
+    # so scan the raw message directly for embedded email parts.
+    mail = email.message_from_string(raw_email)
+    for part in mail.walk():
+        if part.get_content_type() == "message/rfc822":
+            payload = part.get_payload()
+            if isinstance(payload, list) and payload:
+                inner_msg = payload[0]
+                inner_bytes = inner_msg.as_bytes()
+                filename = part.get_filename() or "forwarded.eml"
+                return inner_bytes, filename
+    return None
+
+
+def _build_finding_from_email(
+    email_id: str, raw_email: str, outer_data: EmailData
+) -> Finding:
+    """Build a Finding from an email, detecting forwarded-as-attachment phishing reports."""
+    forwarded = _find_forwarded_attachment(outer_data, raw_email)
+
+    if forwarded:
+        content, filename = forwarded
+        inner_data = _parse_attached_email(content, email_id)
+        if inner_data:
+            return _build_forwarded_finding(
+                email_id, content, filename, outer_data, inner_data
+            )
+        logger.warning(
+            "Failed to parse forwarded attachment %s, treating as normal email",
+            filename,
+        )
+
+    return _build_direct_finding(email_id, raw_email, outer_data)
+
+
+def _build_forwarded_finding(
+    email_id: str,
+    inner_raw: bytes,
+    inner_filename: str,
+    outer_data: EmailData,
+    inner_data: EmailData,
+) -> Finding:
+    """Build a Finding where the reported/inner email is the target and the outer is the reporter."""
+    subject = inner_data.headers.subject or ""
+    body_text = inner_data.body.plain_text or inner_data.body.html or ""
+    email_headers = {k: v for k, v in inner_data.to_dict()["headers"].items() if v}
+
+    attachments: list[FindingAttachment] = [
+        FindingAttachment(
+            file_name=inner_filename,
+            data=inner_raw,
+            is_raw_email=True,
+        )
+    ]
+    for att in inner_data.attachments:
+        if att.content:
+            attachments.append(
+                FindingAttachment(
+                    file_name=att.filename,
+                    data=att.content,
+                    is_raw_email=False,
+                )
+            )
+
+    return Finding(
+        rule_title=subject[:100] if subject else f"Email ID: {email_id}",
+        email=FindingEmail(
+            headers=email_headers or None,
+            body=body_text or None,
+            urls=inner_data.urls or None,
+            reporter=_build_reporter(outer_data, email_id),
+        ),
+        attachments=attachments,
+    )
+
+
+def _build_direct_finding(
+    email_id: str, raw_email: str, email_data: EmailData
+) -> Finding:
+    """Build a Finding from a regular (non-forwarded) email."""
+    subject = email_data.headers.subject or ""
+    body_text = email_data.body.plain_text or email_data.body.html or ""
+    email_headers = {k: v for k, v in email_data.to_dict()["headers"].items() if v}
+
+    raw_eml = raw_email.encode("utf-8") if isinstance(raw_email, str) else raw_email
+    attachments: list[FindingAttachment] = [
+        FindingAttachment(
+            file_name=f"email_{email_id}.eml",
+            data=raw_eml,
+            is_raw_email=True,
+        )
+    ]
+    for att in email_data.attachments:
+        if att.content:
+            attachments.append(
+                FindingAttachment(
+                    file_name=att.filename,
+                    data=att.content,
+                    is_raw_email=False,
+                )
+            )
+
+    return Finding(
+        rule_title=subject[:100] if subject else f"Email ID: {email_id}",
+        email=FindingEmail(
+            headers=email_headers or None,
+            body=body_text or None,
+            urls=email_data.urls or None,
+        ),
+        attachments=attachments,
+    )
 
 
 class Asset(BaseAsset):
@@ -677,48 +882,20 @@ def on_es_poll(
     for email_id in email_ids:
         try:
             raw_email, _data_time_info = helper._get_email_data(email_id)
-            email_data = extract_rfc5322_email_data(
+            outer_data = extract_email_data(
                 raw_email, str(email_id), include_attachment_content=True
             )
         except Exception as e:
             logger.error(f"Error processing email {email_id} for ES: {e}")
             continue
 
-        subject = email_data.headers.subject or ""
-        body_text = email_data.body.plain_text or email_data.body.html or ""
-        email_headers = {k: v for k, v in email_data.to_dict()["headers"].items() if v}
-
-        raw_eml = raw_email.encode("utf-8") if isinstance(raw_email, str) else raw_email
-        attachments: list[FindingAttachment] = [
-            FindingAttachment(
-                file_name=f"email_{email_id}.eml",
-                data=raw_eml,
-                is_raw_email=True,
-            )
-        ]
-        for att in email_data.attachments:
-            if att.content:
-                attachments.append(
-                    FindingAttachment(
-                        file_name=att.filename,
-                        data=att.content,
-                        is_raw_email=False,
-                    )
-                )
+        finding = _build_finding_from_email(str(email_id), raw_email, outer_data)
 
         state["es_next_muid"] = int(email_id) + 1
         if not is_poll_now:
             state["es_first_run"] = False
 
-        yield Finding(
-            rule_title=subject[:100] if subject else f"Email ID: {email_id}",
-            email=FindingEmail(
-                headers=email_headers or None,
-                body=body_text or None,
-                urls=email_data.urls or None,
-            ),
-            attachments=attachments,
-        )
+        yield finding
 
 
 class GetEmailSummary(ActionOutput):

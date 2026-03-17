@@ -7,16 +7,13 @@ requires-python = ">=3.13, <3.15"
 authors = [
 ]
 dependencies = [
-    "beautifulsoup4>=4.14.2",
     "imapclient>=3.0.1",
     "parse>=1.20.2",
     "python-dateutil>=2.9.0.post0",
     "python-magic>=0.4.27",
-    "splunk-soar-sdk>=3.15.1",
+    "splunk-soar-sdk[email]>=3.17.1",
 ]
 
-# [tool.uv.sources]
-# splunk-soar-sdk = { path = "../soar-apps-sdk", editable = true }
 
 [tool.soar.app]
 main_module = "src.app:app"
