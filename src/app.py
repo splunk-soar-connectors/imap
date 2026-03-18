@@ -21,7 +21,7 @@ import time
 from collections.abc import Generator, Iterator
 from datetime import datetime, UTC
 from email.header import decode_header, make_header
-from email.utils import getaddresses, parseaddr
+from email.utils import getaddresses, parseaddr, parsedate_to_datetime
 
 from pydantic import Field as PydanticField
 
@@ -196,6 +196,36 @@ def _build_finding_from_email(
     return _build_direct_finding(email_id, raw_email, outer_data)
 
 
+def _format_utc_date(date_str: str | None) -> str:
+    """Parse an email date header and return a UTC formatted string."""
+    if not date_str:
+        return "unknown date"
+    try:
+        dt = parsedate_to_datetime(date_str).astimezone(UTC)
+        return dt.strftime("(%Y-%m-%d %H:%M UTC)")
+    except Exception:
+        return date_str
+
+
+def _build_forwarded_title(outer_data: EmailData, inner_data: EmailData) -> str:
+    """Build the rule_title for a forwarded-as-attachment (.eml/.msg) finding."""
+    reporter = _extract_address(outer_data.headers.from_address) or "Unknown sender"
+    original_sender = (
+        _extract_address(inner_data.headers.from_address) or "Unknown sender"
+    )
+    subject = inner_data.headers.subject
+
+    if subject:
+        title = f"{reporter} reported email from {original_sender} - {subject}"
+    else:
+        date_str = _format_utc_date(inner_data.headers.date)
+        title = (
+            f"{reporter} reported email from {original_sender} - No subject {date_str}"
+        )
+
+    return title[:200]
+
+
 def _build_forwarded_finding(
     email_id: str,
     inner_raw: bytes,
@@ -204,7 +234,6 @@ def _build_forwarded_finding(
     inner_data: EmailData,
 ) -> Finding:
     """Build a Finding where the reported/inner email is the target and the outer is the reporter."""
-    subject = inner_data.headers.subject or ""
     body_text = inner_data.body.plain_text or inner_data.body.html or ""
     email_headers = {k: v for k, v in inner_data.to_dict()["headers"].items() if v}
 
@@ -226,7 +255,7 @@ def _build_forwarded_finding(
             )
 
     return Finding(
-        rule_title=subject[:100] if subject else f"Email ID: {email_id}",
+        rule_title=_build_forwarded_title(outer_data, inner_data),
         email=FindingEmail(
             headers=email_headers or None,
             body=body_text or None,
@@ -237,11 +266,24 @@ def _build_forwarded_finding(
     )
 
 
+def _build_direct_title(email_data: EmailData) -> str:
+    """Build the rule_title for a direct (non-attachment-forwarded) finding."""
+    sender = _extract_address(email_data.headers.from_address) or "Unknown sender"
+    subject = email_data.headers.subject
+
+    if subject:
+        title = f"{sender} reported email - {subject}"
+    else:
+        date_str = _format_utc_date(email_data.headers.date)
+        title = f"{sender} reported email - No subject {date_str}"
+
+    return title[:200]
+
+
 def _build_direct_finding(
     email_id: str, raw_email: str, email_data: EmailData
 ) -> Finding:
     """Build a Finding from a regular (non-forwarded) email."""
-    subject = email_data.headers.subject or ""
     body_text = email_data.body.plain_text or email_data.body.html or ""
     email_headers = {k: v for k, v in email_data.to_dict()["headers"].items() if v}
 
@@ -264,7 +306,7 @@ def _build_direct_finding(
             )
 
     return Finding(
-        rule_title=subject[:100] if subject else f"Email ID: {email_id}",
+        rule_title=_build_direct_title(email_data),
         email=FindingEmail(
             headers=email_headers or None,
             body=body_text or None,
