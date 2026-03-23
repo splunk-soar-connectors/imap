@@ -902,8 +902,6 @@ def on_es_poll(
 
     state = asset.ingest_state
     is_poll_now = params.container_count is not None
-
-    is_first_run = state.get("es_first_run", True)
     lower_id = state.get("es_next_muid", 1)
 
     if is_poll_now:
@@ -911,7 +909,7 @@ def on_es_poll(
             params.container_count if params.container_count > 0 else asset.max_emails
         )
     else:
-        max_emails = asset.first_run_max_emails if is_first_run else asset.max_emails
+        max_emails = asset.max_emails
 
     email_ids = helper._get_email_ids_to_process(
         max_emails, lower_id, asset.ingest_manner
@@ -934,8 +932,6 @@ def on_es_poll(
         finding = _build_finding_from_email(str(email_id), raw_email, outer_data)
 
         state["es_next_muid"] = int(email_id) + 1
-        if not is_poll_now:
-            state["es_first_run"] = False
 
         yield finding
 
