@@ -854,8 +854,7 @@ def on_poll(
     helper._connect_to_server()
 
     state = asset.ingest_state
-
-    is_poll_now = params.container_count is not None
+    is_poll_now = params.is_manual_poll()
 
     if is_poll_now:
         lower_id = 1
@@ -901,7 +900,7 @@ def on_es_poll(
     helper._connect_to_server()
 
     state = asset.ingest_state
-    is_poll_now = params.container_count is not None
+    is_poll_now = params.is_manual_poll()
     lower_id = state.get("es_next_muid", 1)
 
     if is_poll_now:
