@@ -4,3 +4,4 @@
 - Extract URLs whose hosts contain internationalized or mixed-script characters. [PAPP-38206, PSAAS-31928]
 - Sanitize decoded attachment filenames and preserve the ingestion automation trigger when an attachment cannot be vaulted. [PAPP-38206, PSAAS-32039]
 - Queue overflowed UIDs during latest-first polling so subsequent polls ingest them instead of permanently skipping them. [PAPP-38206, PSAAS-32267]
+- Isolate malformed messages to their individual UID so polling continues and advances past poison emails. [PAPP-38206, PSAAS-32291]

@@ -668,9 +668,7 @@ class ImapConnector(BaseConnector):
                     self._state["pending_email_uids"] = remaining_uids
                 else:
                     self._state.pop("pending_email_uids", None)
-                self.save_progress(
-                    f"Draining {len(selected_uids)} queued email UIDs; {len(remaining_uids)} remain from an earlier poll window"
-                )
+                self.save_progress(f"Draining {len(selected_uids)} queued email UIDs; {len(remaining_uids)} remain from an earlier poll window")
                 return phantom.APP_SUCCESS, "", selected_uids
 
         try:
@@ -702,9 +700,7 @@ class ImapConnector(BaseConnector):
             if len(uids) > max_emails:
                 pending_uids = uids[:-max_emails]
                 self._state["pending_email_uids"] = pending_uids
-                self.save_progress(
-                    f"Poll window exceeded max_emails; queued {len(pending_uids)} older email UIDs for subsequent polls"
-                )
+                self.save_progress(f"Poll window exceeded max_emails; queued {len(pending_uids)} older email UIDs for subsequent polls")
             # return the latest i.e. the rightmost items in the list
             return phantom.APP_SUCCESS, "", uids[-max_emails:]
 
@@ -900,17 +896,27 @@ class ImapConnector(BaseConnector):
         if not email_ids:
             return action_result.set_status(phantom.APP_SUCCESS)
 
+        failed_email_ids = []
         for i, email_id in enumerate(email_ids):
             self.send_progress(f"Parsing email uid: {email_id}")
             try:
-                self._handle_email(email_id, param)
+                ret_val = self._handle_email(email_id, param)
+                if phantom.is_fail(ret_val):
+                    failed_email_ids.append(email_id)
+                    self.debug_print(f"Failed to process email uid {email_id}; continuing with the poll window")
             except Exception as e:
                 error_text = self._get_error_message_from_exception(e)
                 self.debug_print(f"ErrorExp in _handle_email # {i}", error_text)
-                return action_result.set_status(phantom.APP_ERROR)
+                failed_email_ids.append(email_id)
 
         if email_ids:
             self._state["next_muid"] = max(int(self._state.get("next_muid", 1)), int(email_ids[-1]) + 1)
+
+        if failed_email_ids:
+            return action_result.set_status(
+                phantom.APP_SUCCESS,
+                f"Skipped failed email UIDs and continued polling: {', '.join(str(uid) for uid in failed_email_ids)}",
+            )
 
         return action_result.set_status(phantom.APP_SUCCESS)
 

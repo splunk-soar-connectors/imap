@@ -914,7 +914,12 @@ class ProcessEmail:
         return
 
     def _int_process_email(self, rfc822_email, email_id, start_time_epoch):
-        mail = email.message_from_string(rfc822_email)
+        try:
+            mail = email.message_from_string(rfc822_email)
+        except Exception as e:
+            message = f"Failed to parse email {email_id}: {e}"
+            self._debug_print(message)
+            return phantom.APP_ERROR, message, []
 
         ret_val = phantom.APP_SUCCESS
 
