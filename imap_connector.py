@@ -657,6 +657,22 @@ class ImapConnector(BaseConnector):
         return self._parse_email(muuid, email_data, data_time_info)
 
     def _get_email_ids_to_process(self, max_emails, lower_id, manner):
+        max_emails = int(max_emails)
+
+        if manner == IMAP_INGEST_LATEST_EMAILS:
+            pending_uids = [int(uid) for uid in self._state.get("pending_email_uids", [])]
+            if pending_uids:
+                selected_uids = pending_uids[-max_emails:]
+                remaining_uids = pending_uids[:-max_emails]
+                if remaining_uids:
+                    self._state["pending_email_uids"] = remaining_uids
+                else:
+                    self._state.pop("pending_email_uids", None)
+                self.save_progress(
+                    f"Draining {len(selected_uids)} queued email UIDs; {len(remaining_uids)} remain from an earlier poll window"
+                )
+                return phantom.APP_SUCCESS, "", selected_uids
+
         try:
             # Method to fetch all UIDs
             result, data = self._imap_conn.uid("search", None, f"UID {lower_id!s}:*")
@@ -681,11 +697,14 @@ class ImapConnector(BaseConnector):
         # sort it
         uids.sort()
 
-        # see how many we are supposed to return
-        max_emails = int(max_emails)
-
         if manner == IMAP_INGEST_LATEST_EMAILS:
             self.save_progress(f"Getting {max_emails} MOST RECENT emails uids since uid(inclusive) {lower_id}")
+            if len(uids) > max_emails:
+                pending_uids = uids[:-max_emails]
+                self._state["pending_email_uids"] = pending_uids
+                self.save_progress(
+                    f"Poll window exceeded max_emails; queued {len(pending_uids)} older email UIDs for subsequent polls"
+                )
             # return the latest i.e. the rightmost items in the list
             return phantom.APP_SUCCESS, "", uids[-max_emails:]
 
@@ -891,7 +910,7 @@ class ImapConnector(BaseConnector):
                 return action_result.set_status(phantom.APP_ERROR)
 
         if email_ids:
-            self._state["next_muid"] = int(email_ids[-1]) + 1
+            self._state["next_muid"] = max(int(self._state.get("next_muid", 1)), int(email_ids[-1]) + 1)
 
         return action_result.set_status(phantom.APP_SUCCESS)
 
