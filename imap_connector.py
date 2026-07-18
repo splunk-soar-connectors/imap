@@ -403,6 +403,24 @@ class ImapConnector(BaseConnector):
 
         self.save_progress(IMAP_CONNECTED_TO_SERVER)
 
+        # Basic authentication must never send mailbox credentials over a
+        # cleartext connection. Assets that explicitly disable implicit TLS
+        # therefore require a successful STARTTLS upgrade before LOGIN.
+        if not is_oauth and not use_ssl:
+            try:
+                result, data = self._imap_conn.starttls()
+            except Exception as e:
+                error_text = self._get_error_message_from_exception(e)
+                return action_result.set_status(
+                    phantom.APP_ERROR,
+                    f"Failed to establish STARTTLS before login: {error_text}",
+                )
+            if result != "OK":
+                return action_result.set_status(
+                    phantom.APP_ERROR,
+                    f"Failed to establish STARTTLS before login. Server response: {data}",
+                )
+
         # Login
         try:
             if is_oauth:

@@ -118,7 +118,7 @@
             "data_type": "boolean",
             "description": "Use SSL",
             "order": 14,
-            "default": false
+            "default": true
         },
         "extract_attachments": {
             "data_type": "boolean",
