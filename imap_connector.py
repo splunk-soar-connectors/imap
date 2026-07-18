@@ -656,10 +656,10 @@ class ImapConnector(BaseConnector):
 
         return self._parse_email(muuid, email_data, data_time_info)
 
-    def _get_email_ids_to_process(self, max_emails, lower_id, manner):
+    def _get_email_ids_to_process(self, max_emails, lower_id, manner, persist_overflow=True):
         max_emails = int(max_emails)
 
-        if manner == IMAP_INGEST_LATEST_EMAILS:
+        if manner == IMAP_INGEST_LATEST_EMAILS and persist_overflow:
             pending_uids = [int(uid) for uid in self._state.get("pending_email_uids", [])]
             if pending_uids:
                 selected_uids = pending_uids[-max_emails:]
@@ -697,7 +697,7 @@ class ImapConnector(BaseConnector):
 
         if manner == IMAP_INGEST_LATEST_EMAILS:
             self.save_progress(f"Getting {max_emails} MOST RECENT emails uids since uid(inclusive) {lower_id}")
-            if len(uids) > max_emails:
+            if persist_overflow and len(uids) > max_emails:
                 pending_uids = uids[:-max_emails]
                 self._state["pending_email_uids"] = pending_uids
                 self.save_progress(f"Poll window exceeded max_emails; queued {len(pending_uids)} older email UIDs for subsequent polls")
@@ -841,7 +841,12 @@ class ImapConnector(BaseConnector):
             return action_result.get_status()
 
         self.save_progress(f"POLL NOW Getting {max_emails} most recent email uid(s)")
-        ret_val, ret_msg, email_ids = self._get_email_ids_to_process(max_emails, 1, config[IMAP_JSON_INGEST_MANNER])
+        ret_val, ret_msg, email_ids = self._get_email_ids_to_process(
+            max_emails,
+            1,
+            config[IMAP_JSON_INGEST_MANNER],
+            persist_overflow=False,
+        )
 
         if phantom.is_fail(ret_val):
             return action_result.set_status(ret_val, ret_msg)
