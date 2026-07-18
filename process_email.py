@@ -1022,12 +1022,34 @@ class ProcessEmail:
         vault_artifacts_added = 0
 
         last_file = len(files) - 1
+        automation_triggered = False
+        attachment_failures = []
         for i, curr_file in enumerate(files):
             run_automation = True if i == last_file else False
             ret_val, added_to_vault = self._handle_file(curr_file, vault_ids, container_id, vault_artifacts_added, run_automation)
 
-            if added_to_vault:
+            if not phantom.is_fail(ret_val) and not phantom.is_fail(added_to_vault):
                 vault_artifacts_added += 1
+                automation_triggered = automation_triggered or run_automation
+            else:
+                attachment_failures.append(curr_file.get("file_name") or curr_file.get("file_path") or f"attachment {i + 1}")
+
+        if attachment_failures:
+            self._base_connector.save_progress(
+                f"Failed to ingest {len(attachment_failures)} email attachment(s): {', '.join(attachment_failures)}"
+            )
+
+        if files and not automation_triggered:
+            fallback_artifact = {
+                **_artifact_common,
+                "container_id": container_id,
+                "name": "Email Ingestion Status",
+                "cef": {"attachmentIngestionStatus": "Completed with attachment errors"},
+                "run_automation": True,
+            }
+            self._set_sdi(fallback_artifact)
+            ret_val, status_string, _ = self._base_connector.save_artifact(fallback_artifact)
+            self._base_connector.debug_print(f"Fallback automation artifact returns, value: {ret_val}, reason: {status_string}")
 
         return
 
@@ -1146,6 +1168,9 @@ class ProcessEmail:
         vault_attach_dict[phantom.APP_JSON_APP_RUN_ID] = self._base_connector.get_app_run_id()
 
         file_name = self._decode_uni_string(file_name, file_name)
+        file_name = re.sub(r"[\x00-\x1f\x7f]", "_", file_name).strip()
+        if not file_name:
+            file_name = f"attachment-{artifact_id + 1}"
 
         try:
             success, message, vault_id = phantom_rules.vault_add(
