@@ -1,6 +1,6 @@
 # File: imap_connector.py
 #
-# Copyright (c) 2016-2025 Splunk Inc.
+# Copyright (c) 2016-2026 Splunk Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -403,6 +403,24 @@ class ImapConnector(BaseConnector):
 
         self.save_progress(IMAP_CONNECTED_TO_SERVER)
 
+        # Basic authentication must never send mailbox credentials over a
+        # cleartext connection. Assets that explicitly disable implicit TLS
+        # therefore require a successful STARTTLS upgrade before LOGIN.
+        if not is_oauth and not use_ssl:
+            try:
+                result, data = self._imap_conn.starttls()
+            except Exception as e:
+                error_text = self._get_error_message_from_exception(e)
+                return action_result.set_status(
+                    phantom.APP_ERROR,
+                    f"Failed to establish STARTTLS before login: {error_text}",
+                )
+            if result != "OK":
+                return action_result.set_status(
+                    phantom.APP_ERROR,
+                    f"Failed to establish STARTTLS before login. Server response: {data}",
+                )
+
         # Login
         try:
             if is_oauth:
@@ -638,7 +656,21 @@ class ImapConnector(BaseConnector):
 
         return self._parse_email(muuid, email_data, data_time_info)
 
-    def _get_email_ids_to_process(self, max_emails, lower_id, manner):
+    def _get_email_ids_to_process(self, max_emails, lower_id, manner, persist_overflow=True):
+        max_emails = int(max_emails)
+
+        if manner == IMAP_INGEST_LATEST_EMAILS and persist_overflow:
+            pending_uids = [int(uid) for uid in self._state.get("pending_email_uids", [])]
+            if pending_uids:
+                selected_uids = pending_uids[-max_emails:]
+                remaining_uids = pending_uids[:-max_emails]
+                if remaining_uids:
+                    self._state["pending_email_uids"] = remaining_uids
+                else:
+                    self._state.pop("pending_email_uids", None)
+                self.save_progress(f"Draining {len(selected_uids)} queued email UIDs; {len(remaining_uids)} remain from an earlier poll window")
+                return phantom.APP_SUCCESS, "", selected_uids
+
         try:
             # Method to fetch all UIDs
             result, data = self._imap_conn.uid("search", None, f"UID {lower_id!s}:*")
@@ -663,11 +695,12 @@ class ImapConnector(BaseConnector):
         # sort it
         uids.sort()
 
-        # see how many we are supposed to return
-        max_emails = int(max_emails)
-
         if manner == IMAP_INGEST_LATEST_EMAILS:
             self.save_progress(f"Getting {max_emails} MOST RECENT emails uids since uid(inclusive) {lower_id}")
+            if persist_overflow and len(uids) > max_emails:
+                pending_uids = uids[:-max_emails]
+                self._state["pending_email_uids"] = pending_uids
+                self.save_progress(f"Poll window exceeded max_emails; queued {len(pending_uids)} older email UIDs for subsequent polls")
             # return the latest i.e. the rightmost items in the list
             return phantom.APP_SUCCESS, "", uids[-max_emails:]
 
@@ -808,7 +841,12 @@ class ImapConnector(BaseConnector):
             return action_result.get_status()
 
         self.save_progress(f"POLL NOW Getting {max_emails} most recent email uid(s)")
-        ret_val, ret_msg, email_ids = self._get_email_ids_to_process(max_emails, 1, config[IMAP_JSON_INGEST_MANNER])
+        ret_val, ret_msg, email_ids = self._get_email_ids_to_process(
+            max_emails,
+            1,
+            config[IMAP_JSON_INGEST_MANNER],
+            persist_overflow=False,
+        )
 
         if phantom.is_fail(ret_val):
             return action_result.set_status(ret_val, ret_msg)
@@ -863,17 +901,27 @@ class ImapConnector(BaseConnector):
         if not email_ids:
             return action_result.set_status(phantom.APP_SUCCESS)
 
+        failed_email_ids = []
         for i, email_id in enumerate(email_ids):
             self.send_progress(f"Parsing email uid: {email_id}")
             try:
-                self._handle_email(email_id, param)
+                ret_val = self._handle_email(email_id, param)
+                if phantom.is_fail(ret_val):
+                    failed_email_ids.append(email_id)
+                    self.debug_print(f"Failed to process email uid {email_id}; continuing with the poll window")
             except Exception as e:
                 error_text = self._get_error_message_from_exception(e)
                 self.debug_print(f"ErrorExp in _handle_email # {i}", error_text)
-                return action_result.set_status(phantom.APP_ERROR)
+                failed_email_ids.append(email_id)
 
         if email_ids:
-            self._state["next_muid"] = int(email_ids[-1]) + 1
+            self._state["next_muid"] = max(int(self._state.get("next_muid", 1)), int(email_ids[-1]) + 1)
+
+        if failed_email_ids:
+            return action_result.set_status(
+                phantom.APP_SUCCESS,
+                f"Skipped failed email UIDs and continued polling: {', '.join(str(uid) for uid in failed_email_ids)}",
+            )
 
         return action_result.set_status(phantom.APP_SUCCESS)
 

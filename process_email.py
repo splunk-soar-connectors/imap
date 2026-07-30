@@ -1,6 +1,6 @@
 # File: process_email.py
 #
-# Copyright (c) 2016-2025 Splunk Inc.
+# Copyright (c) 2016-2026 Splunk Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -87,7 +87,10 @@ PROC_EMAIL_JSON_MSG_ID = "message_id"
 PROC_EMAIL_JSON_EMAIL_HEADERS = "email_headers"
 PROC_EMAIL_CONTENT_TYPE_MESSAGE = "message/rfc822"
 
-URI_REGEX = r"[Hh][Tt][Tt][Pp][Ss]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+#]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+"
+URI_REGEX = (
+    r"([Hh][Tt][Tt][Pp][Ss]?:\/\/)((?:[:@\.\-_0-9]|[^ -@\[-\`\{-\~\s]|"
+    r"[\[\(][^\s\[\]\(\)]*[\]\)])+)((?:[\/\?]+(?:[^\[\'\"\(\{\)\]\}\s]|[\[\(][^\[\]\(\)]*[\]\)])*)*)[\/]?"
+)
 EMAIL_REGEX = r"\b[A-Z0-9._%+-]+@+[A-Z0-9.-]+\.[A-Z]{2,}\b"
 EMAIL_REGEX2 = r'".*"@[A-Z0-9.-]+\.[A-Z]{2,}\b'
 HASH_REGEX = r"\b[0-9a-fA-F]{32}\b|\b[0-9a-fA-F]{40}\b|\b[0-9a-fA-F]{64}\b"
@@ -911,7 +914,12 @@ class ProcessEmail:
         return
 
     def _int_process_email(self, rfc822_email, email_id, start_time_epoch):
-        mail = email.message_from_string(rfc822_email)
+        try:
+            mail = email.message_from_string(rfc822_email)
+        except Exception as e:
+            message = f"Failed to parse email {email_id}: {e}"
+            self._debug_print(message)
+            return phantom.APP_ERROR, message, []
 
         ret_val = phantom.APP_SUCCESS
 
@@ -1019,12 +1027,34 @@ class ProcessEmail:
         vault_artifacts_added = 0
 
         last_file = len(files) - 1
+        automation_triggered = False
+        attachment_failures = []
         for i, curr_file in enumerate(files):
             run_automation = True if i == last_file else False
             ret_val, added_to_vault = self._handle_file(curr_file, vault_ids, container_id, vault_artifacts_added, run_automation)
 
-            if added_to_vault:
+            if not phantom.is_fail(ret_val) and not phantom.is_fail(added_to_vault):
                 vault_artifacts_added += 1
+                automation_triggered = automation_triggered or run_automation
+            else:
+                attachment_failures.append(curr_file.get("file_name") or curr_file.get("file_path") or f"attachment {i + 1}")
+
+        if attachment_failures:
+            self._base_connector.save_progress(
+                f"Failed to ingest {len(attachment_failures)} email attachment(s): {', '.join(attachment_failures)}"
+            )
+
+        if files and not automation_triggered:
+            fallback_artifact = {
+                **_artifact_common,
+                "container_id": container_id,
+                "name": "Email Ingestion Status",
+                "cef": {"attachmentIngestionStatus": "Completed with attachment errors"},
+                "run_automation": True,
+            }
+            self._set_sdi(fallback_artifact)
+            ret_val, status_string, _ = self._base_connector.save_artifact(fallback_artifact)
+            self._base_connector.debug_print(f"Fallback automation artifact returns, value: {ret_val}, reason: {status_string}")
 
         return
 
@@ -1143,6 +1173,9 @@ class ProcessEmail:
         vault_attach_dict[phantom.APP_JSON_APP_RUN_ID] = self._base_connector.get_app_run_id()
 
         file_name = self._decode_uni_string(file_name, file_name)
+        file_name = re.sub(r"[\x00-\x1f\x7f]", "_", file_name).strip()
+        if not file_name:
+            file_name = f"attachment-{artifact_id + 1}"
 
         try:
             success, message, vault_id = phantom_rules.vault_add(
