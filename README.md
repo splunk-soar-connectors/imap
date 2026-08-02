@@ -318,6 +318,7 @@ VARIABLE | REQUIRED | TYPE | DESCRIPTION
 **first_run_max_emails** | required | numeric | Maximum emails to poll first time for schedule and interval polling |
 **max_emails** | required | numeric | Maximum emails to poll |
 **use_ssl** | optional | boolean | Use SSL |
+**verify_server_cert** | optional | boolean | Verify IMAP server certificate |
 **extract_attachments** | optional | boolean | Extract Attachments |
 **extract_urls** | optional | boolean | Extract URLs |
 **extract_ips** | optional | boolean | Extract IPs |

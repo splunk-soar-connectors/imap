@@ -34,6 +34,7 @@ from phantom.action_result import ActionResult
 from phantom.base_connector import BaseConnector
 
 from imap_consts import *
+from imap_security import create_ssl_context
 from process_email import ProcessEmail
 from request_handler import RequestStateHandler, _get_dir_name_from_app_name
 
@@ -387,6 +388,7 @@ class ImapConnector(BaseConnector):
 
         use_ssl = config[IMAP_JSON_USE_SSL]
         server = config[phantom.APP_JSON_SERVER]
+        ssl_context = create_ssl_context(config.get("verify_server_cert", True))
 
         # Set timeout to avoid stall
         socket.setdefaulttimeout(60)
@@ -394,7 +396,7 @@ class ImapConnector(BaseConnector):
         # Connect to the server
         try:
             if is_oauth or use_ssl:
-                self._imap_conn = imaplib.IMAP4_SSL(server)
+                self._imap_conn = imaplib.IMAP4_SSL(server, ssl_context=ssl_context)
             else:
                 self._imap_conn = imaplib.IMAP4(server)
         except Exception as e:
@@ -408,7 +410,7 @@ class ImapConnector(BaseConnector):
         # therefore require a successful STARTTLS upgrade before LOGIN.
         if not is_oauth and not use_ssl:
             try:
-                result, data = self._imap_conn.starttls()
+                result, data = self._imap_conn.starttls(ssl_context)
             except Exception as e:
                 error_text = self._get_error_message_from_exception(e)
                 return action_result.set_status(
