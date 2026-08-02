@@ -16,6 +16,10 @@ from pathlib import Path
 
 
 SOAR_CA_BUNDLE = Path("/opt/phantom/etc/cacerts.pem")
+URI_REGEX = (
+    r"(?:[Hh][Tt][Tt][Pp][Ss]?:\/\/)(?:(?:[:@\.\-_0-9]|[^ -@\[-\`\{-\~\s]|"
+    r"[\[\(][^\s\[\]\(\)]*[\]\)])+)(?:(?:[\/\?]+(?:[^\[\'\"\(\{\)\]\}\s]|[\[\(][^\[\]\(\)]*[\]\)])*)*)[\/]?"
+)
 
 
 def create_ssl_context(verify_server_cert, ca_bundle=SOAR_CA_BUNDLE):
