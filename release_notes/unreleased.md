@@ -1,1 +1,4 @@
 **Unreleased**
+
+* Verify IMAP server certificates by default for implicit TLS and STARTTLS, with an explicit asset-level opt-out.
+* Restore plaintext URL and internationalized-domain extraction before artifact creation.
