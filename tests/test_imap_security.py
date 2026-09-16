@@ -15,7 +15,35 @@ import re
 import ssl
 from unittest.mock import MagicMock, patch
 
-from imap_security import URI_REGEX, create_ssl_context
+from imap_security import MAX_IMAP_UID, URI_REGEX, create_ssl_context, quote_imap_mailbox, validate_imap_uid
+
+
+def _assert_value_error(function, value, expected_message):
+    try:
+        function(value)
+    except ValueError as e:
+        assert expected_message in str(e)
+    else:
+        raise AssertionError(f"Expected ValueError for {value!r}")
+
+
+def test_validate_imap_uid_accepts_nonzero_32_bit_values():
+    for uid in (1, "1", MAX_IMAP_UID, str(MAX_IMAP_UID)):
+        assert validate_imap_uid(uid) == str(uid)
+
+
+def test_validate_imap_uid_rejects_values_outside_rfc_3501_uniqueid_grammar():
+    for uid in (None, True, 0, "0", -1, "-1", "01", "1.0", "1e2", " 1", "1 ", "\u0661", MAX_IMAP_UID + 1):
+        _assert_value_error(validate_imap_uid, uid, "positive IMAP UID")
+
+
+def test_quote_imap_mailbox_uses_modified_utf7_and_imap_quoted_string_escaping():
+    assert quote_imap_mailbox('Team "A"\\B\u00fccher') == '"Team \\"A\\"\\\\B&APw-cher"'
+
+
+def test_quote_imap_mailbox_rejects_line_terminators():
+    for mailbox in ("INBOX\rCREATE injected", "INBOX\nCREATE injected", "INBOX\r\nCREATE injected"):
+        _assert_value_error(quote_imap_mailbox, mailbox, "CR or LF")
 
 
 def test_verified_context_loads_platform_ca_bundle():
