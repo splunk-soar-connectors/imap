@@ -28,13 +28,12 @@ from email.header import decode_header, make_header
 import phantom.app as phantom
 import requests
 from dateutil import tz
-from imapclient import imap_utf7
 from parse import parse
 from phantom.action_result import ActionResult
 from phantom.base_connector import BaseConnector
 
 from imap_consts import *
-from imap_security import create_ssl_context
+from imap_security import create_ssl_context, quote_imap_mailbox, validate_imap_uid
 from process_email import ProcessEmail
 from request_handler import RequestStateHandler, _get_dir_name_from_app_name
 
@@ -458,7 +457,12 @@ class ImapConnector(BaseConnector):
 
         self._folder_name = config.get(IMAP_JSON_FOLDER, "inbox")
         try:
-            result, data = self._imap_conn.select(f'"{imap_utf7.encode(self._folder_name).decode()}"', True)
+            mailbox = quote_imap_mailbox(self._folder_name)
+        except ValueError as e:
+            return action_result.set_status(phantom.APP_ERROR, str(e))
+
+        try:
+            result, data = self._imap_conn.select(mailbox, True)
         except Exception as e:
             error_text = self._get_error_message_from_exception(e)
             return action_result.set_status(
@@ -564,7 +568,12 @@ class ImapConnector(BaseConnector):
 
         if is_diff:
             try:
-                result, data = self._imap_conn.select(f'"{imap_utf7.encode(folder).decode()}"', True)
+                mailbox = quote_imap_mailbox(folder)
+            except ValueError as e:
+                return action_result.set_status(phantom.APP_ERROR, str(e)), email_data, data_time_info
+
+            try:
+                result, data = self._imap_conn.select(mailbox, True)
             except Exception as e:
                 error_text = self._get_error_message_from_exception(e)
                 return (
@@ -765,7 +774,7 @@ class ImapConnector(BaseConnector):
         email_data = None
         data_time_info = None
 
-        if not email_id and not container_id:
+        if email_id is None and not container_id:
             return action_result.set_status(phantom.APP_ERROR, "Please specify either id or container_id to get the email")
 
         if container_id:
@@ -774,7 +783,12 @@ class ImapConnector(BaseConnector):
                 return action_result.get_status()
             self._is_hex = True
             self._folder_name = folder
-        elif email_id:
+        else:
+            try:
+                email_id = validate_imap_uid(email_id)
+            except ValueError as e:
+                return action_result.set_status(phantom.APP_ERROR, str(e))
+
             if phantom.is_fail(self._connect_to_server_helper(action_result)):
                 return action_result.get_status()
 

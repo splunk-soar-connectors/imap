@@ -14,12 +14,33 @@
 import ssl
 from pathlib import Path
 
+from imapclient import imap_utf7
 
+
+MAX_IMAP_UID = (1 << 32) - 1
 SOAR_CA_BUNDLE = Path("/opt/phantom/etc/cacerts.pem")
 URI_REGEX = (
     r"(?:[Hh][Tt][Tt][Pp][Ss]?:\/\/)(?:(?:[:@\.\-_0-9]|[^ -@\[-\`\{-\~\s]|"
     r"[\[\(][^\s\[\]\(\)]*[\]\)])+)(?:(?:[\/\?]+(?:[^\[\'\"\(\{\)\]\}\s]|[\[\(][^\[\]\(\)]*[\]\)])*)*)[\/]?"
 )
+
+
+def validate_imap_uid(value):
+    """Return an RFC 3501 unique identifier in canonical string form."""
+    uid = str(value)
+    if not uid or not uid.isascii() or not uid.isdecimal() or uid[0] == "0" or int(uid) > MAX_IMAP_UID:
+        raise ValueError(f"Email ID must be a positive IMAP UID between 1 and {MAX_IMAP_UID}")
+    return uid
+
+
+def quote_imap_mailbox(mailbox):
+    """Encode and quote a mailbox name for an inline IMAP command argument."""
+    if "\r" in mailbox or "\n" in mailbox:
+        raise ValueError("Folder name must not contain CR or LF characters")
+
+    encoded_mailbox = imap_utf7.encode(mailbox).decode("ascii")
+    escaped_mailbox = encoded_mailbox.replace("\\", "\\\\").replace('"', '\\"')
+    return f'"{escaped_mailbox}"'
 
 
 def create_ssl_context(verify_server_cert, ca_bundle=SOAR_CA_BUNDLE):
