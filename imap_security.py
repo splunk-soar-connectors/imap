@@ -11,6 +11,7 @@
 # either express or implied. See the License for the specific language governing permissions
 # and limitations under the License.
 
+import os
 import ssl
 from pathlib import Path
 
@@ -18,7 +19,6 @@ from imapclient import imap_utf7
 
 
 MAX_IMAP_UID = (1 << 32) - 1
-SOAR_CA_BUNDLE = Path("/opt/phantom/etc/cacerts.pem")
 URI_REGEX = (
     r"(?:[Hh][Tt][Tt][Pp][Ss]?:\/\/)(?:(?:[:@\.\-_0-9]|[^ -@\[-\`\{-\~\s]|"
     r"[\[\(][^\s\[\]\(\)]*[\]\)])+)(?:(?:[\/\?]+(?:[^\[\'\"\(\{\)\]\}\s]|[\[\(][^\[\]\(\)]*[\]\)])*)*)[\/]?"
@@ -43,12 +43,12 @@ def quote_imap_mailbox(mailbox):
     return f'"{escaped_mailbox}"'
 
 
-def create_ssl_context(verify_server_cert, ca_bundle=SOAR_CA_BUNDLE):
+def create_ssl_context(verify_server_cert, ca_bundle=None):
     """Create the TLS context used before sending IMAP credentials."""
     context = ssl.create_default_context()
     if verify_server_cert:
-        if ca_bundle.is_file():
-            context.load_verify_locations(cafile=str(ca_bundle))
+        ca_bundle = ca_bundle or Path(os.environ["REQUESTS_CA_BUNDLE"])
+        context.load_verify_locations(cafile=str(ca_bundle))
         return context
 
     context.check_hostname = False

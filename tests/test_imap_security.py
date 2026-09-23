@@ -49,13 +49,22 @@ def test_quote_imap_mailbox_rejects_line_terminators():
 def test_verified_context_loads_platform_ca_bundle():
     context = MagicMock()
     ca_bundle = MagicMock()
-    ca_bundle.is_file.return_value = True
     ca_bundle.__str__.return_value = "/opt/phantom/etc/cacerts.pem"
 
     with patch("imap_security.ssl.create_default_context", return_value=context):
         assert create_ssl_context(True, ca_bundle) is context
 
     context.load_verify_locations.assert_called_once_with(cafile="/opt/phantom/etc/cacerts.pem")
+
+
+def test_verified_context_uses_runtime_ca_bundle(monkeypatch):
+    context = MagicMock()
+    monkeypatch.setenv("REQUESTS_CA_BUNDLE", "/splunk/broker/etc/cacerts.pem")
+
+    with patch("imap_security.ssl.create_default_context", return_value=context):
+        assert create_ssl_context(True) is context
+
+    context.load_verify_locations.assert_called_once_with(cafile="/splunk/broker/etc/cacerts.pem")
 
 
 def test_explicit_opt_out_disables_hostname_and_chain_validation():
